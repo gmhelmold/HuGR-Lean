@@ -3,7 +3,7 @@
 **Document ID:** HL-PLAN-001  
 **Version:** 1.1  
 **Status:** Normative planning baseline — adversarially reviewed  
-**Review state:** Review pass 1 incorporated  
+**Review state:** Adversarial review pass 1 incorporated; internal consistency pass complete  
 **Supersedes:** Project Plan v0.1  
 **Scope:** Product definition, project constraints, work decomposition, verification obligations, and completion criteria  
 **Next normative documents:** Technical Specification; Roadmap / Execution Plan
@@ -98,7 +98,7 @@ HuGR-Lean addresses this problem at ingestion time rather than attempting to rep
 HuGR-Lean includes:
 
 - observation capture at an available tool-result boundary;
-- safe generic hygiene;
+- conservative SafeNormalization where applicability is established;
 - recognition of known output families;
 - deterministic profile-based reduction;
 - conservative passthrough;
@@ -143,6 +143,8 @@ The project uses the following implementation-independent concepts.
 ### 5.1 Observation
 
 An **Observation** is the complete result made available by a tool boundary before HuGR-Lean modifies model-visible content.
+
+"Complete" is relative to that boundary. If a host has already truncated, summarized, reordered, or otherwise transformed process output before exposing the boundary, HuGR-Lean MUST NOT describe the unavailable pre-boundary data as captured raw output.
 
 Conceptually, an observation may contain:
 
@@ -206,7 +208,7 @@ A **Profile** is a deterministic set of rules for a recognized output family.
 
 ### 5.7 Raw Artifact
 
-A **Raw Artifact** is an exact retained representation of an original observation payload created when retention policy requires it.
+A **Raw Artifact** is an exact retained representation of the original **boundary observation payload** created when retention policy requires it. It does not claim to recover bytes that the host never exposed to HuGR-Lean.
 
 ### 5.8 Host Adapter
 
@@ -344,7 +346,7 @@ Physical deletion MAY be lazy and occur at the next defined cleanup opportunity.
 
 ---
 
-## 10. Refinement obligation
+## 9.1 Refinement obligation
 
 An implementation refines this model only if:
 
@@ -379,7 +381,7 @@ When the system cannot establish that a transformation is safe, it MUST preserve
 
 ### INV-004 — Critical-signal preservation
 
-A successful reduction MUST preserve all critical signals defined for the applicable observation/profile.
+A successful reduction MUST preserve all critical signals required by the applicable Preservation Contract.
 
 ### INV-005 — Failure-state preservation
 
@@ -590,7 +592,9 @@ HuGR-Lean MUST support optional bounded raw preservation for materially reduced 
 A valid raw reference MUST be retrievable while retained.
 
 ### FR-009 — Metrics
-HuGR-Lean MUST measure raw versus emitted size and identify the responsible reduction path.
+HuGR-Lean MUST measure boundary-input versus emitted size and identify the responsible reduction path.
+
+The measurement baseline is the Observation actually exposed to HuGR-Lean. Metrics MUST NOT attribute savings to bytes/tokens already removed upstream by the host.
 
 Exact byte/character measurements are mandatory where representable. Token measurements are optional and, when reported, MUST identify the tokenizer/model basis used; HuGR-Lean MUST NOT require a tokenizer dependency merely to function.
 
@@ -911,7 +915,7 @@ A new profile may enter the core only if all are satisfied:
 7. the maintenance cost is justified;
 8. failure can remain conservative under version drift.
 
-If generic hygiene solves the problem adequately, the profile SHOULD NOT exist.
+If SafeNormalization solves the problem adequately, the profile SHOULD NOT exist.
 
 ---
 
@@ -1362,7 +1366,7 @@ Include:
 ### Completeness criteria
 - fixture taxonomy documented;
 - all supported profiles represented;
-- generic hygiene adversarial corpus present;
+- safe-normalization adversarial corpus present;
 - regression policy enforced.
 
 ### Definition of Done
@@ -1402,6 +1406,7 @@ Metrics MUST distinguish exact size measures from tokenizer-specific token estim
 - Reduction ratio MUST NOT be optimized at the expense of INV-004.
 - Benchmark corpus MUST NOT contain only hand-picked favorable cases.
 - Published claims MUST identify methodology.
+- Savings MUST be measured against the boundary input actually observed by HuGR-Lean; upstream host truncation/compaction MUST NOT be credited to HuGR-Lean.
 
 ### Success criteria
 - reduction distributions are demonstrated on real noisy workloads rather than a hand-picked single percentage;
@@ -1491,7 +1496,7 @@ WP0  Evidence & donor audit
 WP1 Core       WP7 Verification corpus (starts early, continues)
  │
  ▼
-WP2 Generic hygiene
+WP2 Safe normalization
  │
  ├──────────────┐
  ▼              ▼
@@ -1818,6 +1823,7 @@ Tests that merely encode conflicting implementation behavior do not override the
 | R10 | Metrics token estimator mismatch | Misleading savings claims | Distinguish bytes and tokenizer-specific estimates |
 | R11 | Mixed-stream semantic damage | Misdiagnosed failures | Preserve host ordering metadata where available |
 | R12 | Silent degraded recovery | User/model assumes raw exists | Explicit degraded state, INV-012 |
+| R13 | Host mutates output before interception | Misleading "raw" recovery/metrics or lost filtering opportunity | Boundary-relative raw definition, adapter capability matrix, honest benchmark baseline |
 
 Risk status and ownership belong to the roadmap/project-tracking layer.
 
