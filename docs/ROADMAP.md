@@ -24,14 +24,14 @@ No WP is promoted to an epic merely to make the roadmap look busy.
 
 ## 1. Epic map
 
-| Epic | Name | Primary Work Packages | Outcome |
-|---|---|---|---|
-| E0 | Evidence & Baseline | WP0 + WP7 seed | Donor knowledge, provenance and verification baseline |
-| E1 | Core Engine | WP1 + WP2 | Correct deterministic fail-open filtering engine |
-| E2 | Profile System & Coverage | WP3 + WP7 growth | Broad safe coverage with Preservation Contracts |
-| E3 | Recovery & Safety | WP4 | Exact optional raw recovery without context infrastructure |
-| E4 | OpenCode Integration & UX | WP5 + WP6 | Installable invisible product in first supported host |
-| E5 | Proof, Packaging & Release | WP8 + WP9 + WP7 maturity | Reproducible benchmarked public release |
+| Epic | Tracking issue | Name | Primary Work Packages | Outcome |
+|---|---|---|---|---|
+| E0 | #1 | Evidence & Baseline | WP0 + WP7 seed | Donor knowledge, provenance and verification baseline |
+| E1 | #2 | Core Engine | WP1 + WP2 | Correct deterministic fail-open filtering engine |
+| E2 | #3 | Profile System & Coverage | WP3 + WP7 growth | Broad safe coverage with Preservation Contracts |
+| E3 | #4 | Recovery & Safety | WP4 | Exact optional raw recovery without context infrastructure |
+| E4 | #5 | OpenCode Integration & UX | WP5 + WP6 | Installable invisible product in first supported host |
+| E5 | #6 | Proof, Packaging & Release | WP8 + WP9 + WP7 maturity | Reproducible benchmarked public release |
 
 ## 2. Dependency graph
 
