@@ -730,10 +730,12 @@ Every profile MUST also declare input requirements equivalent to:
 
 ~~~rust
 struct ProfileRequirements {
-    completeness: CompletenessRequirement,
-    termination: TerminationRequirement,
+    completeness: CompletenessRequirement, // Any | Complete
+    termination: TerminationRequirement,   // Any | Exited
 }
 ~~~
+
+Requirements are checked before analysis. An unmet requirement is a conservative non-match/fail-open path, not a parser error.
 
 A profile that produces complete aggregate claims SHOULD require:
 
@@ -781,7 +783,7 @@ Profile analysis produces:
 2. a set of required `Signal` objects;
 3. profile-specific validation facts.
 
-Conceptually:
+Conceptually, signal construction is restricted:
 
 ~~~rust
 struct Signal {
@@ -791,15 +793,28 @@ struct Signal {
 }
 
 enum EvidenceRef {
-    InputSpan { start: usize, end: usize },
+    InputSpan { start_byte: usize, end_byte: usize },
     OutcomeField,
-    Derived { rule_id: &'static str, source_spans: Vec<Span> },
+    Derived { rule_id: &'static str, source_spans: Vec<ByteSpan> },
 }
 ~~~
 
-Signal evidence is relative to the analysis baseline.
+Input spans are UTF-8 byte ranges over the analysis baseline and MUST end on valid character boundaries.
 
-A signal MUST NOT be created from unconstrained profile-authored prose. It must point to input evidence, an explicit host outcome field, or a mechanically defined derivation.
+Profiles do not receive a public "arbitrary Signal fields" constructor.
+
+The implementation SHOULD expose constructors equivalent to:
+
+~~~text
+Signal::verbatim(span)
+Signal::canonicalized(span, rule_id)
+Signal::from_outcome(field)
+Signal::derived(rule_id, source_spans, mechanically_computed_text)
+~~~
+
+A signal MUST NOT be created from unconstrained profile-authored prose.
+
+Canonicalization/derivation rules are named code paths with fixtures; the rule ID is diagnostic provenance, not a semantic confidence score.
 
 ## 14.2 LeanWriter
 
@@ -808,16 +823,20 @@ Profiles MUST render through a small writer abstraction.
 Conceptual operations:
 
 ~~~rust
-out.text(...)
-out.line(...)
-out.signal(&signal)
-out.derived(...)
+out.static_text(...)   // compile-time/static labels and punctuation only
+out.signal(&signal)    // data-bearing preserved evidence
+out.derived(...)       // mechanically derived data with rule provenance
+out.newline()
 ~~~
+
+Dynamic observation-derived text MUST NOT be emitted through `static_text`.
 
 `signal()`:
 
 1. writes the signal's canonical text;
 2. records that the signal was emitted.
+
+`derived()` requires a named derivation rule and source evidence.
 
 A profile MUST NOT mark a signal as preserved without emitting its canonical representation.
 
@@ -1053,7 +1072,9 @@ This avoids writing raw copies for trivial changes.
 
 Artifacts MUST be created with create-new semantics so concurrent one-shot processes cannot overwrite each other.
 
-Writes MUST become visible only after the complete artifact is durable enough for normal retrieval; partial files MUST NOT be returned as valid raw artifacts.
+Writes MUST use a same-directory temporary file followed by close and atomic rename to the final random ID. Retrieval recognizes final IDs only; temporary files are never valid raw artifacts.
+
+Temporary files abandoned by crashes are eligible for later cleanup. Partial files MUST NOT be returned as valid raw artifacts.
 
 If the store exceeds its configured maximum, oldest artifacts may be removed first, including before nominal TTL expiry. A later request for an evicted artifact returns explicit `unavailable`; the raw reference is never silently redirected to different content.
 
@@ -1303,7 +1324,14 @@ hugrLean:
   engineVersion
 ~~~
 
-`rawRef` remains excluded by default because it can identify sensitive local evidence. Surfacing raw references requires a separate UI/debug path whose visibility is explicit.
+`rawRef` remains excluded by default because it can identify sensitive local evidence.
+
+When raw retention is enabled, an adapter may claim raw-recovery support only if it has an explicit non-model-visible way to surface the reference, such as:
+
+- host metadata proven by integration test to be non-model-visible; or
+- explicit local debug/log output requested by the user.
+
+Otherwise that adapter MUST treat raw recovery as unavailable even though the core capability exists.
 
 ## 23.5 No attachment mutation
 
@@ -1593,7 +1621,8 @@ Required for:
 - simple shell parser;
 - profile recognition;
 - profile analysis;
-- LeanWriter;
+- restricted Signal constructors/evidence spans;
+- LeanWriter static/dynamic separation;
 - preservation validation;
 - metrics;
 - raw ID validation;
@@ -1867,8 +1896,10 @@ Default core behavior is quiet.
 Diagnostics go to stderr only when:
 
 - requested by human CLI;
-- adapter enables debug mode;
+- adapter enables explicit debug mode;
 - protocol failure prevents a structured result.
+
+When raw retention is explicitly enabled, debug mode MAY print the opaque raw reference locally. It MUST NOT print raw content unless the user explicitly invokes `hugr-lean raw <id>`.
 
 Normal filtering MUST NOT generate context-visible chatter.
 
@@ -1972,7 +2003,7 @@ If future evidence proves command mutation is necessary for a specific host, it 
 
 # 44. Deliberate non-designs
 
-The following are deliberately absent from HL-SPEC-001 v0.1:
+The following are deliberately absent from HL-SPEC-001 v1 scope:
 
 - LLM summarization;
 - semantic relevance model;
@@ -2008,22 +2039,23 @@ HL-SPEC-001 is implemented when all of the following are demonstrably true:
 5. unknown arbitrary text defaults to passthrough;
 6. simple command recognition never treats complex shell syntax as a direct simple command;
 7. at least one real profile performs reduction through analyze/render/validate;
-8. missing required signals cause fail-open;
-9. non-expansion guard prevents larger model output;
-10. OpenCode adapter successfully mutates supported hook output;
-11. OpenCode adapter preserves original output on missing binary/crash/timeout/protocol/schema failure;
-12. exit/truncation/unknown states are mapped without false certainty;
-13. truncated input cannot yield unsupported complete summaries;
-14. shell source alone never enables terminal SafeNormalization;
-15. adapter hook never throws HuGR-Lean failures into the host;
-16. attachments are untouched;
-17. raw retention is off by default;
-18. enabled raw retention is local, bounded, exact, and lazily cleaned;
-19. metrics are boundary-honest;
-20. core requires no network, LLM, database, or daemon;
-21. performance targets are benchmarked;
-22. donor provenance is recorded for reused material;
-23. all mapped HL-PLAN-001 invariants have automated or auditable verification.
+8. data-bearing rendered claims are source-backed or mechanically derived;
+9. missing required signals cause fail-open;
+10. non-expansion guard prevents larger model output;
+11. OpenCode adapter successfully mutates supported hook output;
+12. OpenCode adapter preserves original output on missing binary/crash/timeout/protocol/schema failure;
+13. exit/truncation/unknown states are mapped without false certainty;
+14. truncated input cannot yield unsupported complete summaries;
+15. shell source alone never enables terminal SafeNormalization;
+16. adapter hook never throws HuGR-Lean failures into the host;
+17. attachments are untouched;
+18. raw retention is off by default;
+19. enabled raw retention is local, bounded, exact, and lazily cleaned;
+20. metrics are boundary-honest;
+21. core requires no network, LLM, database, or daemon;
+22. performance targets are benchmarked;
+23. donor provenance is recorded for reused material;
+24. all mapped HL-PLAN-001 invariants have automated or auditable verification.
 
 ---
 
