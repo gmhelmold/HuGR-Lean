@@ -1999,25 +1999,21 @@ Before implementation scales beyond the core, the project SHOULD maintain a ligh
 
 This reviewed document is the normative project baseline once the review commit is accepted on the default branch.
 
-The project state becomes:
+HL-SPEC-001 v1.0 has been approved.
+
+The project state is now:
 
 ~~~text
-Formalized
+TechnicallySpecified
 ~~~
 
 The next activity is:
 
 ~~~text
-Technical Specification
-~~~
-
-followed by:
-
-~~~text
 Roadmap / Execution Plan
 ~~~
 
-No production architecture is considered settled until the Technical Specification is approved.
+Production architecture is governed by HL-SPEC-001 v1.0 and may change only through its documented specification-change process.
 
 ---
 
