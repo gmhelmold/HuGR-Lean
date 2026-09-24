@@ -202,9 +202,9 @@ Examples include terminal control codes and confidently identified progress fram
 
 A **Profile** is a deterministic set of rules for a recognized output family.
 
-### 5.6 Generic Hygiene
+### 5.6 SafeNormalization
 
-**Generic Hygiene** is the subset of transformations considered safe enough to apply without a profile.
+**SafeNormalization** is a conservative transformation path available without a dedicated profile only when an explicit applicability predicate establishes that the affected material is transport/presentation noise rather than arbitrary payload. Otherwise the observation is passthrough.
 
 ### 5.7 Raw Artifact
 
