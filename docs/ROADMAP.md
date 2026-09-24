@@ -495,21 +495,17 @@ Disallowed:
 - adapters reimplementing reducers;
 - release packaging before provenance is understood.
 
-# 13. GitHub hierarchy - next step
+# 13. GitHub work-item hierarchy
 
-The next step will create GitHub work items with this shape:
+The execution hierarchy has been created.
 
 ~~~text
-Epic tracking issue
-  +-- Work Package issue
-  |    +-- implementation sub-issue
-  |    +-- evidence/fixture sub-issue
-  |    +-- review/verification sub-issue
-  +-- Work Package issue
-       +-- ...
+Epic #1-#6
+  -> WP #7-#16
+      -> child work items #17-#62
 ~~~
 
-Every WP issue must carry the HL-PLAN-001 axioms:
+WP tracking issues carry the HL-PLAN-001 axioms:
 
 - Success Criteria;
 - Quality Standards;
@@ -517,20 +513,18 @@ Every WP issue must carry the HL-PLAN-001 axioms:
 - Definition of Done;
 - Invariants.
 
-Sub-issues exist only when work is independently executable or independently verifiable.
+Child issues exist only for work that is independently executable or independently verifiable. Parent tasklists provide navigable progress tracking and each child links back to its WP.
 
-No issue explosion for bookkeeping.
+# 14. Epic-to-WP issue mapping
 
-# 14. Epic-to-WP mapping
-
-| Epic | Work Packages |
-|---|---|
-| E0 Evidence & Baseline | WP0; WP7 seed |
-| E1 Core Engine | WP1; WP2 |
-| E2 Profile System & Coverage | WP3; WP7 growth |
-| E3 Recovery & Safety | WP4 |
-| E4 OpenCode Integration & UX | WP5; WP6 |
-| E5 Proof, Packaging & Release | WP8; WP9; WP7 release maturity |
+| Epic | WP tracking issue(s) | Child issues |
+|---|---|---|
+| E0 #1 Evidence & Baseline | WP0 #7; WP7 #14 (seed) | WP0: #17-#20; WP7: #49-#53 |
+| E1 #2 Core Engine | WP1 #8; WP2 #9 | WP1: #21-#25; WP2: #26-#28 |
+| E2 #3 Profile System & Coverage | WP3 #10; WP7 #14 (growth) | WP3: #29-#37; WP7: #49-#53 |
+| E3 #4 Recovery & Safety | WP4 #11 | #38-#41 |
+| E4 #5 OpenCode Integration & UX | WP5 #12; WP6 #13 | WP5: #42-#44; WP6: #45-#48 |
+| E5 #6 Proof, Packaging & Release | WP8 #15; WP9 #16; WP7 #14 (maturity) | WP8: #54-#57; WP9: #58-#62; WP7: #49-#53 |
 
 # 15. Current state
 
@@ -543,4 +537,4 @@ Project state:
 Roadmapped
 ~~~
 
-Next: create epic tracking issues, then WP issues and independently useful sub-issues.
+Execution tree is fully decomposed. The first executable lane is E0: WP0 #7 and the WP7 corpus seed #14.
