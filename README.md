@@ -34,7 +34,8 @@ HuGR-Lean is not a memory system, RAG layer, vector database, semantic compresso
 
 ## Status
 
-Project plan formalized. Technical Specification draft created and pending adversarial review.
+Project plan formalized and Technical Specification v1.0 approved. The next normative artifact is the Roadmap / Execution Plan.
 
 - [Formal Project Plan](docs/PROJECT_PLAN.md)
-- [Technical Specification draft](docs/TECHNICAL_SPEC.md)
+- [Approved Technical Specification](docs/TECHNICAL_SPEC.md)
+- [Technical Specification review](docs/reviews/HL-SPEC-001-REVIEW-01.md)
