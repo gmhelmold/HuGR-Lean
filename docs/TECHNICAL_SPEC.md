@@ -1191,13 +1191,15 @@ A reducer is either valid for its recognized contract or not.
 
 ## 23.1 Compatibility snapshot
 
-At OpenCode revision:
+Initial verified release:
 
 ~~~text
-6df0d5d951e0bb8c82dd1a7f9315eff4efd7f1ef
+OpenCode v1.18.32
+tag commit 545f51d26cc39a907d2867492d498d9607ea5fa4
+published 2026-09-21
 ~~~
 
-the execution path invokes:
+At that release, the execution path invokes:
 
 ~~~text
 tool.execute.before
@@ -1218,18 +1220,28 @@ The OpenCode adapter SHALL use `tool.execute.after`.
 
 ## 23.2 Observation mapping
 
+For OpenCode v1.18.32, the exposed shell tool ID remains `"bash"` even when the configured underlying shell may be PowerShell or cmd.
+
 For each eligible invocation:
 
 ~~~text
-host       = "opencode"
-tool       = input.tool
-call_id    = input.callID
-command    = normalized command argument when tool is shell/bash
-output     = output.output
-exit_code  = known metadata exit when safely available
-truncated  = known metadata truncated when safely available
-terminal   = true only for shell-like terminal output
+source        = Shell             when input.tool == "bash"
+source        = Other             otherwise in initial adapter
+command       = input.args.command only when it is a string and source == Shell
+shell_dialect = Unknown           in initial adapter
+output        = output.output
+
+termination   = Exited(code)      when metadata.exit is an integer
+termination   = Unknown           otherwise
+
+completeness  = Truncated         when metadata.truncated === true
+completeness  = Complete          when metadata.truncated === false
+completeness  = Unknown           when the field is absent/untrusted
+
+presentation  = Unknown
 ~~~
+
+The initial adapter deliberately does not infer timeout/abort from prose, does not infer shell dialect from the exposed tool ID, and does not mark captured shell text as `TerminalRendered`.
 
 Arbitrary metadata is not forwarded.
 
@@ -1242,10 +1254,10 @@ reduced
 normalized
 ~~~
 
-the adapter sets:
+the adapter requires `result.replacement` to be present and sets:
 
 ~~~text
-output.output = result.output
+output.output = result.replacement
 ~~~
 
 For:
@@ -1258,11 +1270,13 @@ timeout
 unsupported schema
 ~~~
 
-the adapter preserves the original output unless the result explicitly contains an equivalent fail-open payload.
+the adapter preserves the original output. Passthrough and failed-open responses do not echo the original payload across the subprocess boundary.
 
 ## 23.4 Adapter metadata
 
-When host metadata can safely carry private plugin state, the adapter MAY attach a small non-model-visible object:
+The initial adapter MUST NOT attach HuGR-Lean metadata until an integration test proves that the chosen metadata path is not model-visible and does not alter host persistence semantics.
+
+After that proof, it MAY attach:
 
 ~~~text
 hugrLean:
@@ -1271,11 +1285,10 @@ hugrLean:
   inputBytes
   outputBytes
   savedBytes
-  rawRef?
   engineVersion
 ~~~
 
-If host behavior later proves this metadata model-visible, raw IDs and metrics MUST be removed from that path.
+`rawRef` remains excluded by default because it can identify sensitive local evidence. Surfacing raw references requires a separate UI/debug path whose visibility is explicit.
 
 ## 23.5 No attachment mutation
 
@@ -1291,11 +1304,13 @@ Reading a host-provided full-output path is a separate adapter capability and MU
 
 ## 23.7 Capability verification
 
-The adapter package MUST maintain a tested OpenCode compatibility range.
+The initial supported OpenCode release is exactly `v1.18.32`.
+
+A wider compatibility range may be advertised only after integration tests cover the additional releases.
 
 Installation or startup SHOULD expose a `doctor` check that verifies:
 
-- supported OpenCode version/range;
+- supported OpenCode release/range;
 - HuGR-Lean binary availability;
 - protocol compatibility.
 
@@ -1313,9 +1328,17 @@ Every adapter MUST implement these obligations:
 4. enforce a subprocess timeout;
 5. fail open on process/protocol errors;
 6. avoid forwarding arbitrary secrets/metadata;
-7. apply only the returned model-visible output;
+7. apply only a schema-valid `normalized/reduced + replacement` result;
 8. expose truthful capability/compatibility information;
-9. keep host-specific logic outside reducers.
+9. keep host-specific logic outside reducers;
+10. invoke the HuGR-Lean executable directly, never through a shell;
+11. wrap the entire hook body in a no-throw fail-open boundary;
+12. avoid top-level/plugin-load failure when the binary is missing or invalid;
+13. strictly validate response schema/version/decision consistency before mutation;
+14. bypass the subprocess when `HUGR_LEAN_DISABLED=1`;
+15. bypass filtering for boundary output above the protocol hard input maximum.
+
+A HuGR-Lean adapter failure MUST NOT turn a successful host tool call into a failed host tool call.
 
 Adapters MAY bypass HuGR-Lean for non-text/binary results.
 
@@ -1366,8 +1389,8 @@ A broad interactive CLI is not required.
 ~~~text
 profile error
 → failed_open
-→ SafeNormalized input if already proven safe
-→ otherwise original boundary input
+→ replacement = None
+→ adapter retains its original boundary output
 ~~~
 
 ## 27.2 Preservation failure
@@ -1386,7 +1409,7 @@ Adapter preserves original output.
 
 ## 27.5 Unsupported profile version/shape
 
-Core preserves normalized/passthrough input.
+Core returns no replacement unless a previously validated SafeNormalization result independently qualifies as `normalized`; otherwise the adapter-owned input remains authoritative.
 
 ## 27.6 Raw-store failure
 
@@ -1400,13 +1423,13 @@ Filtering correctness wins; metrics may be unavailable.
 
 # 28. Idempotence
 
-For fixed version/config and equivalent normalized Observation identity:
+For fixed version/config and equivalent normalized Observation facts:
 
 ~~~text
-model_output(filter(model_output(filter(x)))) == model_output(filter(x))
+effective_output(filter(effective_output(filter(x)))) == effective_output(filter(x))
 ~~~
 
-where the second pass is supplied the same invocation identity and outcome facts.
+where the second pass is supplied the same source, command, dialect, termination, completeness, and presentation facts.
 
 This property is required for SafeNormalization and SHOULD hold for every shipped profile.
 
@@ -1421,8 +1444,9 @@ Any profile that cannot satisfy idempotence requires an explicit exception and f
 Active filter bound:
 
 ~~~text
-16 MiB default
-64 MiB hard configurable maximum
+4 MiB default
+16 MiB hard configurable maximum
+128 MiB hard protocol-envelope maximum
 ~~~
 
 ## 29.2 Output
@@ -1513,9 +1537,11 @@ Reducers MUST NOT:
 - follow URLs;
 - invoke network services.
 
-## 32.2 Command string
+## 32.2 Command string and subprocess invocation
 
 Command recognition parses command text but never executes or expands it.
+
+Adapters MUST spawn the fixed HuGR-Lean binary path directly with argv. The observed tool command is transferred only as JSON data on stdin; it is never interpolated into a shell command.
 
 ## 32.3 Raw data
 
@@ -1601,10 +1627,18 @@ Fuzzing is development verification, not a runtime subsystem.
 OpenCode adapter tests require:
 
 - hook mutation reaches returned model-visible output on supported versions;
-- original output survives binary failure;
-- metadata mapping of exit/truncated fields is correct;
+- original output survives binary missing/crash/nonzero protocol failure;
+- malformed or inconsistent response schema fails open;
+- metadata mapping of exit/truncation state is correct;
+- missing exit maps to `TerminationV1::Unknown`, not success;
+- truncated input cannot produce unsupported complete aggregate claims;
+- shell source does not imply `TerminalRendered`;
+- portable bare-command routing works with unknown shell dialect;
+- quoted/complex unknown-dialect commands fail conservative;
 - binary timeout fails open;
-- attachments remain unchanged.
+- adapter hook never throws into OpenCode;
+- attachments remain unchanged;
+- disabled mode performs no subprocess invocation.
 
 ## 33.7 Regression rule
 
@@ -1749,20 +1783,26 @@ Once installed, filtering MUST work without network access.
 
 # 37. OpenCode-specific exactness notes
 
-At the pinned OpenCode snapshot:
+At the pinned stable release `v1.18.32@545f51d...`:
 
 - `tool.execute.after` is called after tool execution;
 - the hook receives mutable `output`;
-- shell metadata includes exit and truncation information;
+- the exposed shell tool ID is still `"bash"` for compatibility even when the actual shell kind may be pwsh/powershell/cmd;
+- shell metadata includes integer/null exit and a truncation boolean;
+- timeout/abort are represented in host-produced output prose rather than a dedicated metadata enum;
 - native shell truncation can happen before the hook;
-- the host may save full truncated shell output to a path.
+- default host truncation is 50 KiB or 2,000 lines;
+- the host may save full truncated shell output to a path;
+- OpenCode publishes a `darwin-x64-baseline` artifact, so Intel macOS is a concrete supported deployment target.
 
 Therefore:
 
 1. OpenCode is a suitable primary adapter target.
 2. HuGR-Lean MUST benchmark itself against **OpenCode's already-bounded boundary output**, not the process's hypothetical unbounded stream.
-3. A future OpenCode-enhanced mode may consume host overflow files, but that is not required for v1 correctness.
-4. Compatibility tests must use actual supported OpenCode versions, not type declarations alone.
+3. The initial adapter reports unknown shell dialect and unknown presentation semantics.
+4. A truncated observation is explicitly incomplete and cannot silently feed complete-result summaries.
+5. A future OpenCode-enhanced mode may consume host overflow files, but that is not required for v1 correctness.
+6. Compatibility tests must use actual supported OpenCode releases, not type declarations alone.
 
 ---
 
@@ -1853,7 +1893,7 @@ If future evidence proves command mutation is necessary for a specific host, it 
 | INV-002 No semantic guessing | identity-based routing + fixture-backed profiles |
 | INV-003 Fail open | adapter retains original; core failed_open path |
 | INV-004 Critical preservation | Signal + LeanWriter + Preservation Contract |
-| INV-005 Failure state | OutcomeV1 exit metadata + profile contract |
+| INV-005 Failure state | TerminationV1 + profile contract |
 | INV-006 Determinism | pure core path; incidental metadata excluded |
 | INV-007 Unknown conservatism | passthrough default; narrow SafeNormalization |
 | INV-008 Pre-ingestion | host `tool.execute.after` mutation before returned tool result |
@@ -1868,7 +1908,7 @@ If future evidence proves command mutation is necessary for a specific host, it 
 | INV-017 Provenance | docs/provenance records |
 | INV-018 Reduction subordinate | preservation before metrics/non-expansion |
 | INV-019 Recovery independence | raw not part of successful contract |
-| INV-020 Normalization provenance | terminal_text applicability |
+| INV-020 Normalization provenance | PresentationV1 capability + profile contract |
 | INV-021 No fabricated evidence | mechanically derived output only |
 
 ---
@@ -1936,16 +1976,19 @@ HL-SPEC-001 is implemented when all of the following are demonstrably true:
 8. missing required signals cause fail-open;
 9. non-expansion guard prevents larger model output;
 10. OpenCode adapter successfully mutates supported hook output;
-11. OpenCode adapter preserves original output on binary crash/timeout/protocol failure;
-12. exit/truncation metadata is mapped only when known;
-13. attachments are untouched;
-14. raw retention is off by default;
-15. enabled raw retention is local, bounded, exact, and lazily cleaned;
-16. metrics are boundary-honest;
-17. core requires no network, LLM, database, or daemon;
-18. performance targets are benchmarked;
-19. donor provenance is recorded for reused material;
-20. all mapped HL-PLAN-001 invariants have automated or auditable verification.
+11. OpenCode adapter preserves original output on missing binary/crash/timeout/protocol/schema failure;
+12. exit/truncation/unknown states are mapped without false certainty;
+13. truncated input cannot yield unsupported complete summaries;
+14. shell source alone never enables terminal SafeNormalization;
+15. adapter hook never throws HuGR-Lean failures into the host;
+16. attachments are untouched;
+17. raw retention is off by default;
+18. enabled raw retention is local, bounded, exact, and lazily cleaned;
+19. metrics are boundary-honest;
+20. core requires no network, LLM, database, or daemon;
+21. performance targets are benchmarked;
+22. donor provenance is recorded for reused material;
+23. all mapped HL-PLAN-001 invariants have automated or auditable verification.
 
 ---
 
