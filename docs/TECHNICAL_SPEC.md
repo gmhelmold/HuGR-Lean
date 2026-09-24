@@ -507,8 +507,8 @@ The engine executes the following logical pipeline.
 7. Render
 8. ValidatePreservation
 9. NonExpansionGuard
-10. OptionalRawStore
-11. Measure
+10. Measure
+11. OptionalRawStore
 12. Return
 ~~~
 
@@ -613,9 +613,12 @@ Every SafeNormalization primitive MUST satisfy:
 
 ~~~text
 N(N(x)) == N(x)
+bytes(N(x)) <= bytes(x)
 ~~~
 
 for its admitted input domain.
+
+If normalization produces byte-identical output, the decision remains `passthrough`.
 
 ---
 
@@ -629,9 +632,11 @@ Profiles route from known execution identity, not from vague output resemblance.
 
 Routing priority:
 
-1. explicit host tool id;
-2. confidently parsed direct shell command;
+1. normalized `SourceV1`;
+2. for `SourceV1::Shell`, confidently parsed command identity;
 3. profile-specific shape guard after identity.
+
+`SourceV1::Other` is not sufficient identity for a command-specific reducer.
 
 Output-only profile recognition is prohibited for shell output in v1.
 
@@ -996,6 +1001,15 @@ Filtering correctness MUST NOT depend on raw retention.
 
 ## 19.2 Optional file store
 
+Default cache root:
+
+~~~text
+Unix/macOS: ${XDG_CACHE_HOME:-$HOME/.cache}/hugr-lean/raw
+Windows:    %LOCALAPPDATA%\\HuGR-Lean\\cache\\raw
+~~~
+
+`HUGR_LEAN_CACHE` MAY override the root.
+
 When explicitly enabled:
 
 - storage is local only;
@@ -1005,6 +1019,7 @@ When explicitly enabled:
 - path traversal is impossible through the public raw ID;
 - Unix directory mode target: `0700`;
 - Unix artifact mode target: `0600`;
+- Windows storage relies on the current-user profile/cache ACL and MUST NOT deliberately broaden it;
 - no remote upload occurs.
 
 ## 19.3 Retention
@@ -1077,8 +1092,6 @@ struct MetricsV1 {
     input_bytes: u64,
     output_bytes: u64,
     saved_bytes: u64,
-    input_chars: u64,
-    output_chars: u64,
 }
 ~~~
 
@@ -1163,6 +1176,8 @@ Invalid existing config is an explicit configuration error. The adapter fails op
 `exclude.profiles` is an exact list of profile IDs.
 
 `exclude.commands` uses exact normalized executable/subcommand roots, not arbitrary regex.
+
+When `enabled=false`, the core returns `passthrough` with `replacement=None`.
 
 Environment switch:
 
@@ -1473,6 +1488,8 @@ Regexes MUST be compatible with Rust's linear-time regex engine semantics.
 
 Reference benchmark hardware will be recorded by WP8.
 
+The following are **initial performance budgets**, chosen to prevent architecture from normalizing large overhead before measurements exist. They are reviewable by evidence, not aspirational marketing claims.
+
 Release targets:
 
 ### Core in-process
@@ -1490,6 +1507,8 @@ Release targets:
 | ≤ 1 MiB | ≤ 60 ms |
 
 The adapter hard deadline remains 250 ms.
+
+Because OpenCode v1.18.32 normally bounds tool output to 50 KiB, the ≤256 KiB row is the primary first-adapter budget.
 
 A release may revise these numbers only with recorded benchmark evidence and explicit spec change.
 
@@ -1702,7 +1721,23 @@ Explicitly rejected from v1:
 - analytics UI;
 - persistent reporting system.
 
-## 34.4 Clean consolidation rule
+## 34.4 Donor input-compatibility gate
+
+Before adopting/adapting a donor reducer, WP0/WP3 MUST classify what input the donor reducer assumes.
+
+A donor implementation is **rewrite-dependent** if it relies on behavior such as:
+
+- injecting JSON/NDJSON flags;
+- changing command arguments;
+- forcing color/format modes;
+- separating streams differently from the host boundary;
+- executing a donor-specific wrapper rather than parsing native host output.
+
+Rewrite-dependent reducers MUST NOT be copied into HuGR-Lean as though they parse native post-execution output. Their algorithms/fixtures may inform a REIMPLEMENT decision only after native-input behavior is specified and tested.
+
+This is especially important because RTK/TRS frequently gain determinism by rewriting commands, while HuGR-Lean v1 explicitly does not.
+
+## 34.5 Clean consolidation rule
 
 HuGR-Lean MUST NOT run donor engines side by side.
 
@@ -1901,7 +1936,7 @@ If future evidence proves command mutation is necessary for a specific host, it 
 | INV-010 Workflow transparency | plugin hook, no command prefix |
 | INV-011 Metrics non-interference | metrics returned side-band |
 | INV-012 Recovery non-interference | raw disabled by default; failure diagnostic only |
-| INV-013 Profile locality | identity router + ambiguity fail-open |
+| INV-013 Profile locality | SourceV1/command router + ambiguity fail-open |
 | INV-014 Scope containment | no database/agent/RAG subsystems |
 | INV-015 No network | core has no network dependency |
 | INV-016 Bounded complexity | single package + primitive-first profiles |
