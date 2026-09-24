@@ -34,6 +34,7 @@ HuGR-Lean is not a memory system, RAG layer, vector database, semantic compresso
 
 ## Status
 
-Project plan formalized. Technical Specification is the next normative step.
+Project plan formalized. Technical Specification draft created and pending adversarial review.
 
-See [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md).
+- [Formal Project Plan](docs/PROJECT_PLAN.md)
+- [Technical Specification draft](docs/TECHNICAL_SPEC.md)
