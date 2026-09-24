@@ -1,8 +1,9 @@
 # HuGR-Lean — Technical Specification
 
 **Document ID:** HL-SPEC-001  
-**Version:** 0.1  
-**Status:** Draft technical baseline — pending adversarial review  
+**Version:** 0.2  
+**Status:** Technical baseline — adversarial review in progress  
+**Review state:** Critical/High findings being incorporated  
 **Normative parent:** HL-PLAN-001 v1.1  
 **Date:** 2026-09-24  
 **Scope:** Concrete architecture and technical mechanisms required to refine the Formal Project Plan
@@ -54,15 +55,16 @@ These pins are research references, not runtime dependencies.
 | RTK | `rtk-ai/rtk@f5e104e117ab5b05c69d448103c28f1155e04417` | broad Rust reducer coverage, fail-safe behavior, command-specific parsers |
 | TRS | `dPeluChe/trs@0175ae73f36709fd4a9242b2e431d026d6f82bb3` | alternative Rust parsers, classifier patterns, agent-integration research |
 | CX | `contextlimit/cx@b7c81334e63ba3c1adaafbd2773ca2b8049ae7ae` | passthrough discipline, exact evidence, failure preservation, truthful metrics |
-| OpenCode | `anomalyco/opencode@6df0d5d951e0bb8c82dd1a7f9315eff4efd7f1ef` | current `tool.execute.after` boundary and shell-result metadata |
+| OpenCode | `anomalyco/opencode v1.18.32@545f51d26cc39a907d2867492d498d9607ea5fa4` | stable-release `tool.execute.after` boundary, shell metadata, native truncation behavior |
 
 Important observations from this snapshot:
 
 1. RTK and TRS prove that broad deterministic CLI-output reduction is practical without LLM calls.
 2. CX demonstrates useful safety patterns around exact evidence and explicit passthrough.
-3. Current OpenCode invokes `tool.execute.after` after tool execution and provides mutable tool output.
-4. Current OpenCode shell execution may truncate before that hook, and exposes metadata including exit status, truncation state, and a full-output path when available.
-5. Therefore HuGR-Lean metrics and raw semantics are defined relative to the actual adapter boundary, not imaginary pre-host bytes.
+3. OpenCode v1.18.32 invokes `tool.execute.after` after tool execution and provides mutable tool output.
+4. OpenCode v1.18.32 shell execution may truncate before that hook, and exposes metadata including exit status, truncation state, and a full-output path when available.
+5. OpenCode v1.18.32 defaults tool truncation to 2,000 lines or 50 KiB, so the primary adapter normally receives already-bounded text.
+6. Therefore HuGR-Lean metrics and raw semantics are defined relative to the actual adapter boundary, not imaginary pre-host bytes.
 
 All copied or materially derived donor code remains subject to HL-PLAN-001 provenance requirements.
 
@@ -265,6 +267,8 @@ Expected baseline:
 - `serde`;
 - `serde_json`;
 - `regex` only where regex materially simplifies a safe parser;
+- `toml` for the small user configuration file;
+- `getrandom` for collision-resistant raw-artifact IDs;
 - standard library for filesystem, time, process, collections, and I/O.
 
 Additional production dependencies require the dependency-budget justification from HL-PLAN-001.
@@ -299,7 +303,8 @@ The binary protocol is one-shot:
 stdin  → exactly one JSON request
 stdout → exactly one JSON response
 stderr → human/debug diagnostics only
-exit   → protocol execution status
+exit 0 → protocol exchange completed, including passthrough/failed_open
+nonzero → protocol/bootstrap failure; adapter MUST fail open
 ~~~
 
 Model-visible tool content MUST NOT be written directly to stderr.
@@ -316,57 +321,87 @@ Human CLI syntax may evolve, but Protocol V1 is stable within major version 1.
 
 ## 6.3 ObservationV1
 
+Protocol V1 carries only facts the core can use safely.
+
 Conceptual schema:
 
 ~~~rust
 struct ObservationV1 {
     schema_version: u16,          // MUST be 1
-    host: String,                // e.g. "opencode"
-    tool: String,                // normalized host tool id
-    call_id: Option<String>,     // opaque correlation only
-    command: Option<String>,     // raw shell command when applicable
+    source: SourceV1,
+    command: Option<String>,     // shell command when applicable; bounded
+    shell_dialect: ShellDialectV1,
     output: String,              // exact UTF-8 boundary text
-    outcome: OutcomeV1,
+    termination: TerminationV1,
+    completeness: CompletenessV1,
     presentation: PresentationV1,
-    host_state: HostStateV1,
 }
 ~~~
 
-### OutcomeV1
+Host names, call IDs, session IDs, arbitrary metadata, authentication data, attachments, and full host objects are deliberately excluded from the core protocol.
 
-~~~rust
-struct OutcomeV1 {
-    exit_code: Option<i32>,
-    aborted: bool,
-    timed_out: bool,
-}
+### SourceV1
+
+~~~text
+Shell
+Read
+Search
+Lsp
+Mcp
+Browser
+Other
 ~~~
 
-An unknown exit status is represented as `None`.
+Adapters map host-specific tool IDs to this small source taxonomy.
+
+### ShellDialectV1
+
+~~~text
+Unknown
+Posix
+PowerShell
+Cmd
+~~~
+
+Unknown is the correct value when the adapter cannot prove the shell dialect.
+
+### TerminationV1
+
+~~~text
+Unknown
+Exited(code: i32)
+Aborted
+TimedOut
+~~~
+
+The protocol MUST distinguish **unknown** from **known false**.
 
 HuGR-Lean MUST NOT infer success from missing exit status.
 
+Profiles that claim complete success/failure summaries SHOULD require `Exited(code)` unless their Preservation Contract explicitly supports another termination state.
+
+### CompletenessV1
+
+~~~text
+Unknown
+Complete
+Truncated
+~~~
+
+A profile MUST NOT claim complete aggregate results from `Truncated` or `Unknown` input unless that exact partial-input behavior is explicitly part of its Preservation Contract.
+
 ### PresentationV1
 
-~~~rust
-struct PresentationV1 {
-    terminal_text: bool,
-}
+~~~text
+Unknown
+TerminalRendered
 ~~~
 
-`terminal_text=true` is a safety capability, not decoration.
+`TerminalRendered` is a capability assertion.
 
-It authorizes only normalization whose contract explicitly applies to terminal-rendered text.
+It may be set only when the adapter/host contract proves that terminal control bytes are presentation semantics rather than arbitrary payload data.
 
-### HostStateV1
-
-~~~rust
-struct HostStateV1 {
-    host_truncated: bool,
-}
-~~~
-
-Host-specific paths, arbitrary metadata, authentication data, attachments, and full host objects MUST NOT be copied wholesale into the core protocol.
+A shell-like tool by itself is **not** sufficient evidence.
 
 ## 6.4 FilterResultV1
 
@@ -374,11 +409,11 @@ Host-specific paths, arbitrary metadata, authentication data, attachments, and f
 struct FilterResultV1 {
     schema_version: u16,
     decision: DecisionV1,
-    output: String,
+    replacement: Option<String>,
     profile: Option<String>,
     metrics: MetricsV1,
     raw_ref: Option<String>,
-    diagnostics: Vec<DiagnosticV1>,
+    diagnostics: Vec<DiagnosticCodeV1>,
 }
 ~~~
 
@@ -391,9 +426,26 @@ reduced
 failed_open
 ~~~
 
+Response consistency is strict:
+
+| Decision | replacement |
+|---|---|
+| `normalized` | MUST be `Some(text)` |
+| `reduced` | MUST be `Some(text)` |
+| `passthrough` | MUST be `None` |
+| `failed_open` | MUST be `None` |
+
+The adapter already owns the original output. Echoing it back for passthrough/fail-open would waste memory, IPC, and serialization.
+
 ### Diagnostics
 
-Diagnostics are machine/adapter-facing.
+Diagnostics are bounded machine/adapter-facing enum codes, not arbitrary free-form text.
+
+Initial maximum:
+
+~~~text
+16 diagnostic codes per result
+~~~
 
 They MUST NOT automatically enter model-visible output.
 
@@ -406,7 +458,10 @@ preservation_failed
 input_too_large
 raw_store_failed
 protocol_warning
+incomplete_input
+unknown_termination
 ~~~
+
 
 ---
 
