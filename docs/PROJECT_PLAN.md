@@ -2001,19 +2001,21 @@ This reviewed document is the normative project baseline once the review commit 
 
 HL-SPEC-001 v1.0 has been approved.
 
+HL-ROADMAP-001 v0.1 has established the epic execution baseline and epic tracking issues #1-#6.
+
 The project state is now:
 
 ~~~text
-TechnicallySpecified
+Roadmapped
 ~~~
 
 The next activity is:
 
 ~~~text
-Roadmap / Execution Plan
+Work Package issue decomposition
 ~~~
 
-Production architecture is governed by HL-SPEC-001 v1.0 and may change only through its documented specification-change process.
+Production architecture remains governed by HL-SPEC-001 v1.0. Execution sequencing is governed by HL-ROADMAP-001.
 
 ---
 
