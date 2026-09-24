@@ -1,8 +1,9 @@
 # HuGR-Lean — Formal Project Plan
 
 **Document ID:** HL-PLAN-001  
-**Version:** 1.0  
-**Status:** Normative planning baseline  
+**Version:** 1.1  
+**Status:** Normative planning baseline — adversarially reviewed  
+**Review state:** Review pass 1 incorporated  
 **Supersedes:** Project Plan v0.1  
 **Scope:** Product definition, project constraints, work decomposition, verification obligations, and completion criteria  
 **Next normative documents:** Technical Specification; Roadmap / Execution Plan
@@ -29,7 +30,7 @@ Reference material:
 - Leslie Lamport, *Thinking Above the Code*: https://www.microsoft.com/en-us/research/video/thinking-above-the-code/
 - Leslie Lamport, *Specifying Systems*: https://lamport.org/tla/book.html
 
-This is **not** a decorative TLA+ exercise. A machine-checkable TLA+ module shall be introduced later only if the Technical Specification exposes concurrency or state-transition risks for which model checking provides material value.
+This is **not** a decorative TLA+ exercise. The pseudo-formal notation in this plan is normative only where it states an observable property or an allowed transition; it MUST NOT pretend to provide machine-checked guarantees. A machine-checkable TLA+ module shall be introduced later only if the Technical Specification exposes concurrency or state-transition risks for which model checking provides material value.
 
 ---
 
@@ -161,7 +162,9 @@ A **Lean Result** is the observation representation emitted toward model-visible
 
 ### 5.3 Critical Signal
 
-A **Critical Signal** is information whose loss could alter the model's understanding of whether an operation succeeded, failed, why it failed, or what concrete object/location is implicated.
+A **Critical Signal** is an explicitly declared piece of evidence that a reducer is forbidden to erase or falsify.
+
+Critical signals are not discovered by semantic intuition at runtime. They are defined by the applicable **Preservation Contract** and verified against fixtures.
 
 Examples may include:
 
@@ -173,7 +176,19 @@ Examples may include:
 - failure summary;
 - other profile-specific mandatory evidence.
 
-Critical-signal definitions MUST be explicit and fixture-tested for every profile.
+### 5.3.1 Preservation Contract
+
+A **Preservation Contract** is the profile- or transformation-specific set of predicates that must remain true after reduction.
+
+Conceptually:
+
+~~~text
+Preserves(raw, lean, contract) = true
+~~~
+
+is required before a reduced candidate may be emitted as validated.
+
+A contract MAY permit mechanically derived representations such as deterministic counts or grouped duplicates, but MUST NOT rely on semantic inference. Every supported profile MUST have an explicit, fixture-backed Preservation Contract.
 
 ### 5.4 Known Noise
 
@@ -201,107 +216,146 @@ A **Host Adapter** connects a specific coding-agent/tool environment to the impl
 
 # Part II — Abstract behavior
 
-## 6. Abstract state
+## 6. State decomposition
 
-For specification purposes, processing one observation is modeled by the following abstract state:
+Processing lifecycle and raw-retention lifecycle are intentionally separate. Treating them as one state machine would incorrectly imply that raw expiry is part of processing a tool result.
+
+### 6.1 Processing lifecycle
+
+For one logical observation:
 
 ~~~text
 phase ∈ {
   Captured,
   Classified,
-  Reduced,
+  Transformed,
   Validated,
-  Emitted,
-  FailedOpen
+  FailedOpen,
+  Emitted
 }
 
-raw             = original observation
-classification  ∈ {Known(profile), Unknown}
-candidate       = proposed model-visible result
-result          = emitted model-visible result
-rawRef          ∈ {None} ∪ RawArtifactId
-metrics         = reduction evidence
+raw                  = original observation
+classification       ∈ {Known(profile), Unknown}
+mode                 ∈ {ProfileReduction, SafeNormalization, Passthrough}
+candidate            = proposed model-visible representation
+result               = emitted logical result
+preservationContract = applicable preservation predicates
+metrics              = reduction evidence
 ~~~
 
-This state is descriptive, not an implementation prescription.
+A host MAY physically stream or chunk content. Such chunks are an implementation detail: they MUST refine one logical observation/result without weakening the properties below.
+
+### 6.2 Raw-artifact lifecycle
+
+Raw retention has an independent lifecycle:
+
+~~~text
+rawState ∈ {
+  NotRetained,
+  Retained,
+  LogicallyExpired,
+  Deleted
+}
+~~~
+
+Logical expiry and physical deletion are distinct so HuGR-Lean does not require a background daemon merely to satisfy retention semantics.
 
 ---
 
 ## 7. Initial condition
 
-For every accepted observation:
+For every accepted logical observation:
 
 ~~~text
-Init ==
-  phase = Captured
-  ∧ raw = observation
-  ∧ result = None
-  ∧ classification = Unknown
+phase = Captured
+result = None
+classification = Unknown
 ~~~
 
-No filtering decision exists before capture.
+No reduction decision exists before capture.
 
 ---
 
-## 8. Abstract actions
+## 8. Allowed processing transitions
+
+Only the following logical transitions are allowed:
+
+| From | To | Condition |
+|---|---|---|
+| Captured | Classified | classification attempt completed |
+| Classified | Transformed | a profile reduction, applicable safe normalization, or passthrough representation has been selected |
+| Classified | FailedOpen | safe transformation cannot be established |
+| Transformed | Validated | applicable Preservation Contract holds |
+| Transformed | FailedOpen | preservation cannot be established or transformation fails |
+| Validated | Emitted | validated logical result is ready |
+| FailedOpen | Emitted | conservative result is ready |
+
+An implementation MAY combine internal steps, but MUST preserve the externally observable ordering constraints.
+
+In particular:
+
+- emission MUST NOT precede validation or fail-open selection;
+- profile reduction MUST NOT occur before profile recognition;
+- ambiguity MUST NOT be resolved by aggressive reduction;
+- validation MUST compare the candidate against the applicable Preservation Contract where reduction occurred.
+
+---
+
+## 9. Abstract actions
 
 ### A1 — Classify
 
-The system may classify an observation as belonging to a known profile only when profile detection criteria are satisfied.
+Classification may select a known profile only when its recognition predicate is satisfied. Otherwise the observation remains Unknown.
 
-Otherwise classification remains Unknown.
+### A2 — Transform
 
-### A2 — GenericClean
+For a Known profile, transformation may apply that profile.
 
-The system may apply generic hygiene only using rules admitted to the universal-safe set.
+For Unknown input:
 
-### A3 — ProfileReduce
+1. **SafeNormalization** MAY be applied only when its applicability predicate is satisfied from explicit transport/content facts; otherwise
+2. **Passthrough** MUST be used.
 
-If and only if a known profile is selected, the system may apply that profile's deterministic rules.
+"Unknown" is never itself permission to reduce content.
 
-### A4 — Validate
+### A3 — Validate
 
-The candidate result is checked against applicable preservation rules.
+Validation checks the candidate against the applicable Preservation Contract and structural/failure-state requirements.
 
-Validation MAY be structural and rule-based; it MUST NOT invoke an LLM.
+Validation MUST NOT invoke an LLM.
 
-### A5 — FailOpen
+### A4 — FailOpen
 
-If classification, reduction, or validation cannot establish safe behavior, the system emits a conservative representation, up to and including the original payload.
+If detection, transformation, or validation cannot establish safe behavior, the system selects a conservative representation, up to and including exact passthrough.
 
-### A6 — PreserveRaw
+### A5 — PreserveRaw
 
-If retention policy requires preservation after material reduction, an exact Raw Artifact is recorded.
+Raw preservation is an independent side effect governed by retention policy. Recoverability MUST NOT be used as justification for a reduction that would otherwise violate its Preservation Contract.
 
-Failure to preserve optional raw data MUST NOT cause destructive filtering to continue under assumptions that recovery exists.
+### A6 — Emit
 
-### A7 — Emit
+Exactly one **logical** model-visible result is produced for an accepted observation unless the host cancels delivery. A host adapter MAY implement that logical result through multiple physical chunks if semantics are preserved.
 
-Exactly one model-visible result is produced for an accepted observation, unless the host itself aborts/cancels the tool interaction before delivery.
+### A7 — ExpireRaw
 
-### A8 — ExpireRaw
+After a Raw Artifact reaches its retention deadline, it becomes **LogicallyExpired** and MUST no longer be retrievable as valid retained evidence.
 
-Retained Raw Artifacts are deleted according to the configured retention policy.
+Physical deletion MAY be lazy and occur at the next defined cleanup opportunity. A background daemon is not required solely to satisfy expiry.
 
 ---
 
-## 9. Abstract next-state relation
+## 10. Refinement obligation
 
-Conceptually:
+An implementation refines this model only if:
 
-~~~text
-Next ==
-    Classify
-  ∨ GenericClean
-  ∨ ProfileReduce
-  ∨ Validate
-  ∨ FailOpen
-  ∨ PreserveRaw
-  ∨ Emit
-  ∨ ExpireRaw
-~~~
+1. every logical processing path follows an allowed transition;
+2. every emitted reduced result satisfies its Preservation Contract;
+3. unknown input cannot reach aggressive profile reduction without recognition;
+4. fail-open remains reachable after any recoverable reducer/validator failure;
+5. raw-retention implementation does not weaken filtering correctness;
+6. host chunking/streaming does not change the logical result semantics.
 
-Any implementation is acceptable only if its observable behavior refines these semantics and preserves all invariants below.
+The Technical Specification MUST map concrete implementation states to these abstract states.
 
 ---
 
@@ -331,19 +385,17 @@ A successful reduction MUST preserve all critical signals defined for the applic
 
 If the host exposes failure/exit status, HuGR-Lean MUST NOT transform a failing execution into a representation indistinguishable from success.
 
-### INV-006 — Determinism
+### INV-006 — Observable determinism
 
-For a fixed HuGR-Lean version, configuration, normalized observation, and environment-dependent profile inputs explicitly declared by the Technical Specification:
+For a fixed HuGR-Lean version, configuration, normalized observation, and explicitly declared profile inputs, the **model-visible payload, classification decision, reducer choice, and preservation outcome** MUST be equivalent across repeated processing.
 
-~~~text
-Reduce(x) = Reduce(x)
-~~~
-
-Repeated processing MUST produce equivalent Lean Results and metrics.
+Incidental values such as raw-artifact IDs, wall-clock timestamps, storage paths, and measurement timestamps MAY differ and are outside the deterministic projection unless the Technical Specification explicitly includes them.
 
 ### INV-007 — Unknown conservatism
 
-Unknown observations MUST receive only universal-safe hygiene plus explicitly bounded generic operations.
+Unknown observations MUST default to passthrough.
+
+Safe normalization MAY occur only when an explicit applicability predicate establishes that the affected bytes/text are transport or presentation artifacts rather than arbitrary payload content.
 
 ### INV-008 — Pre-ingestion placement
 
@@ -389,6 +441,18 @@ Third-party-derived code MUST remain traceable to origin and license.
 
 No release decision may trade a known critical-signal regression for a higher reduction ratio.
 
+### INV-019 — Recovery independence
+
+Raw recovery is defense in depth, not a correctness crutch. A reduction MUST satisfy its Preservation Contract even if the Raw Artifact is never retrieved or retention is disabled.
+
+### INV-020 — Normalization requires provenance
+
+A "generic" normalization MUST NOT mutate arbitrary unknown payload merely because a text pattern resembles terminal noise. Its applicability MUST be grounded in explicit source/content/transport facts or a recognized profile.
+
+### INV-021 — No fabricated evidence
+
+HuGR-Lean MUST NOT introduce claims that are not mechanically derivable from the raw observation. Deterministic grouping, counting, or canonicalization is permitted only when its derivation is auditable and covered by the Preservation Contract.
+
 ---
 
 ## 11. Safety property summary
@@ -399,50 +463,45 @@ Informally, HuGR-Lean must ensure:
 
 ---
 
-# Part IV — Liveness and progress properties
+# Part IV — Liveness properties
 
-## 12. Liveness properties
+## 12. System liveness properties
 
-### LIVE-001 — Eventual emission
+Project-management progress is intentionally excluded from system liveness; it is governed separately in §55.
+
+### LIVE-001 — Eventual logical emission
 
 For every accepted observation not cancelled by its host, HuGR-Lean MUST eventually either:
 
-- emit a validated Lean Result; or
-- fail open and emit a conservative result.
+- emit a validated logical Lean Result; or
+- fail open and emit a conservative logical result.
 
-It MUST NOT leave processing indefinitely suspended.
+It MUST NOT leave a processing observation indefinitely suspended.
 
 ### LIVE-002 — Eventual recovery response
 
-For every valid, non-expired Raw Artifact reference, a recovery request MUST eventually return the artifact or an explicit retrieval failure.
+For every recovery request, HuGR-Lean MUST eventually return either:
 
-### LIVE-003 — Eventual expiry
+- the valid non-expired Raw Artifact; or
+- an explicit unavailable/expired/error result.
 
-Raw Artifacts with finite retention MUST eventually become unavailable after their retention condition is met.
+### LIVE-003 — Logical expiry
 
-### LIVE-004 — Project progress
+Once a finite raw-retention deadline is reached, the artifact MUST eventually be treated as expired and MUST NOT be returned as valid retained evidence.
 
-A work package may not remain indefinitely "almost complete." It MUST eventually reach one of:
-
-- Complete;
-- Explicitly Blocked with named blocker and owner;
-- Re-scoped through normative plan change;
-- Rejected/Removed through normative plan change.
-
-### LIVE-005 — Defect closure
-
-A release-blocking invariant violation MUST eventually be resolved, reverted, or explicitly block release. It cannot be waived by silence.
+Physical deletion MAY be lazy and is required only at the next cleanup opportunity defined by the Technical Specification. This property MUST NOT force a resident daemon.
 
 ---
 
 ## 13. Fairness assumptions
 
-The liveness properties above assume:
+The system liveness properties assume:
 
 - the host delivers the tool result to HuGR-Lean;
 - the process receives CPU time;
 - required local I/O is eventually serviced;
 - the host does not permanently suspend the integration;
+- configured cleanup/recovery entry points are eventually invoked where lazy maintenance is used;
 - external commands themselves are outside HuGR-Lean's progress guarantee.
 
 HuGR-Lean does not promise liveness for systems it does not control.
@@ -482,12 +541,13 @@ HuGR-Lean MUST define behavior for at least these classes:
 
 | Failure class | Required behavior |
 |---|---|
-| Unknown command/tool | Conservative generic hygiene or passthrough |
+| Unknown command/tool | Passthrough by default; SafeNormalization only when its applicability predicate is established |
 | Profile detector ambiguity | Prefer unknown/passthrough |
 | Malformed output | Preserve rather than reinterpret |
 | Invalid/partial encoding | Preserve bytes/text according to Technical Specification; no silent destructive normalization |
 | Very large output | Apply only bounded, specified behavior; no unbounded memory assumption |
 | Mixed stdout/stderr | Preserve ordering/semantics to the extent exposed by host |
+| Streamed/chunked result | Preserve one logical-result semantics across physical chunks |
 | Reducer exception/panic | Fail open where recoverable; never emit fabricated success |
 | Metrics failure | Continue filtering safely; mark metrics unavailable |
 | Raw-store failure | Do not claim recoverability; use conservative policy |
@@ -508,8 +568,8 @@ The Technical Specification MUST refine this table into exact behavior.
 ### FR-001 — Capture
 HuGR-Lean MUST accept a host/tool observation at a boundary before model ingestion where the host allows it.
 
-### FR-002 — Universal hygiene
-HuGR-Lean MUST support a minimal universal-safe hygiene layer.
+### FR-002 — Safe normalization
+HuGR-Lean MUST support a minimal set of conservative normalization rules whose applicability is explicitly established. Arbitrary unknown payload is passthrough by default.
 
 ### FR-003 — Profile recognition
 HuGR-Lean MUST support deterministic detection of known output families.
@@ -520,8 +580,8 @@ Known profiles MUST support deterministic, fixture-backed reductions.
 ### FR-005 — Conservative unknown handling
 Unknown observations MUST remain conservatively represented.
 
-### FR-006 — Critical-signal policy
-Every profile MUST define the signals that are mandatory to preserve.
+### FR-006 — Preservation Contract
+Every profile MUST define a fixture-backed Preservation Contract, including its mandatory Critical Signals and any permitted mechanically derived representations.
 
 ### FR-007 — Raw preservation
 HuGR-Lean MUST support optional bounded raw preservation for materially reduced output.
@@ -531,6 +591,8 @@ A valid raw reference MUST be retrievable while retained.
 
 ### FR-009 — Metrics
 HuGR-Lean MUST measure raw versus emitted size and identify the responsible reduction path.
+
+Exact byte/character measurements are mandatory where representable. Token measurements are optional and, when reported, MUST identify the tokenizer/model basis used; HuGR-Lean MUST NOT require a tokenizer dependency merely to function.
 
 ### FR-010 — Enable/disable
 Users MUST be able to disable HuGR-Lean without uninstalling it.
@@ -555,7 +617,7 @@ The product MUST provide a straightforward path to the unfiltered/raw representa
 ## 17. Non-functional requirements
 
 ### NFR-001 — Deterministic
-Filtering MUST be reproducible.
+The model-visible deterministic projection defined by INV-006 MUST be reproducible.
 
 ### NFR-002 — Local-first
 Core filtering MUST operate locally and offline.
@@ -645,22 +707,36 @@ This list is a coverage objective, not permission to create a bespoke subsystem 
 
 ---
 
-## 19. Generic-hygiene candidate classes
+## 19. Safe-normalization candidate classes
 
-Candidate universal transformations include:
+There is intentionally **no assumption that arbitrary unknown text is safe to rewrite**.
 
-- ANSI removal;
-- terminal escape cleanup;
-- carriage-return redraw normalization;
-- spinner/progress rendering cleanup;
-- blank-line collapse;
+Candidate low-risk normalizations include only transformations whose applicability can be established from explicit transport/content facts, for example:
+
+- removing host-added framing known not to belong to payload;
+- terminal escape cleanup when the observation is explicitly terminal-rendered text;
+- carriage-return redraw normalization when carriage returns are known presentation state;
+- spinner/progress-frame cleanup when a recognized presentation grammar proves the frames are rendering artifacts.
+
+The following are **not universal-safe by default** and MUST require a profile or a stronger applicability proof:
+
 - exact repeated-line collapse;
-- exact repeated-block collapse;
-- safe terminal-artifact cleanup.
+- repeated-block collapse;
+- blank-line collapse;
+- arbitrary warning deduplication;
+- head/tail truncation;
+- long-line truncation.
 
-Each candidate MUST be admitted only after adversarial fixtures establish the boundaries under which it is safe.
+A file, JSON payload, test datum, generated source, or log may legitimately contain repetition or whitespace. Pattern resemblance alone is insufficient.
 
-"Looks harmless" is not evidence.
+Every safe-normalization rule MUST have:
+
+1. an applicability predicate;
+2. positive fixtures;
+3. negative/adversarial fixtures;
+4. a documented preservation argument.
+
+"Looks like noise" is not an admission criterion.
 
 ---
 
@@ -829,9 +905,9 @@ A new profile may enter the core only if all are satisfied:
 1. meaningful repeated waste exists;
 2. the output family is sufficiently recognizable;
 3. reduction can be deterministic;
-4. mandatory signals can be defined;
+4. a Preservation Contract and mandatory signals can be defined;
 5. real fixtures exist;
-6. generic hygiene is insufficient;
+6. SafeNormalization is insufficient;
 7. the maintenance cost is justified;
 8. failure can remain conservative under version drift.
 
@@ -877,7 +953,7 @@ The burden of proof is on inclusion.
 
 ## 29. Size budget
 
-Planning target for mature product:
+Planning estimate for mature product (a complexity guardrail, not a delivery KPI):
 
 | Category | Expected range |
 |---|---:|
@@ -1015,38 +1091,41 @@ WP0 substantially complete; Technical Specification approved.
 
 ---
 
-## 33. WP2 — Generic hygiene
+## 33. WP2 — Safe normalization
 
 ### Purpose
-Provide safe value for outputs with no dedicated profile.
+Provide conservative value where presentation/transport facts make normalization provably applicable, while leaving arbitrary unknown payload untouched.
 
 ### Deliverables
-- admitted universal-safe primitives;
+- admitted safe-normalization primitives;
+- applicability predicates;
 - adversarial fixture suite;
-- unknown-output behavior tests;
+- unknown-output passthrough tests;
 - false-positive regression corpus.
 
 ### Invariants
-- Generic hygiene MUST NOT require semantic interpretation.
-- Unknown input MUST remain conservative.
-- A generic transform is not admitted until its safety boundary is documented.
+- Safe normalization MUST NOT require semantic interpretation.
+- Unknown payload defaults to passthrough.
+- A transform is not admitted until both its safety boundary and applicability predicate are documented.
+- Pattern resemblance alone MUST NOT authorize mutation.
 
 ### Success criteria
-- Common terminal-rendering noise is reduced.
-- Arbitrary content remains unchanged outside admitted transformation boundaries.
+- Common terminal-rendering artifacts are reduced when their presentation provenance is known.
+- Arbitrary content remains unchanged when applicability cannot be established.
 
 ### Quality standards
-- Every generic primitive has positive and negative fixtures.
-- Edge cases include code, JSON, logs, Unicode, escape sequences, and malformed text where relevant.
+- Every primitive has positive and negative fixtures.
+- Edge cases include source code, whitespace-sensitive text, JSON, logs, Unicode, literal escape sequences, duplicated data rows, and malformed text where relevant.
 
 ### Completeness criteria
-- all admitted generic transforms individually tested;
+- all admitted transforms individually tested;
+- applicability predicates tested;
 - composition tested;
 - malformed/unknown corpus tested;
 - no known critical-signal regression.
 
 ### Definition of Done
-Generic hygiene can be enabled for unknown tools with defensible confidence that it removes only classes explicitly admitted as safe.
+Safe normalization can operate on eligible observations while arbitrary unknown payload demonstrably remains passthrough.
 
 ### Dependencies
 WP1.
@@ -1061,14 +1140,14 @@ Deliver broad tool coverage without architectural sprawl.
 ### Deliverables
 - profile contract;
 - detection rules;
-- mandatory-signal declarations;
+- Preservation Contracts and mandatory-signal declarations;
 - coverage profiles for target command families;
 - fixtures for supported variants;
 - version-drift fallback behavior.
 
 ### Invariants
 - Profile detection ambiguity MUST fail conservative.
-- Every profile MUST declare mandatory signals.
+- Every profile MUST declare a Preservation Contract and mandatory signals.
 - Profiles MUST reuse primitives where reasonable.
 - No profile may claim support without fixtures.
 
@@ -1119,6 +1198,7 @@ Provide exact recoverability without becoming a memory/search system.
 - Recovery MUST NOT require an LLM.
 - Raw storage MUST NOT become a semantic index.
 - Retention failure MUST NOT be hidden.
+- Raw recovery MUST NOT justify a reduction that would otherwise be unsafe.
 
 ### Success criteria
 - valid references recover exact retained content;
@@ -1254,7 +1334,7 @@ Make safety claims durable.
 - real-output fixtures;
 - adversarial fixtures;
 - regression fixtures;
-- mandatory-signal annotations;
+- Preservation Contract / mandatory-signal annotations;
 - corpus provenance where required.
 
 ### Invariants
@@ -1316,7 +1396,7 @@ saved_tokens = max(R - E, 0)
 reduction_ratio = saved_tokens / R    when R > 0
 ~~~
 
-Metrics MUST distinguish bytes from tokenizer-specific token estimates.
+Metrics MUST distinguish exact size measures from tokenizer-specific token estimates. Token counts MUST name their tokenizer basis and remain optional.
 
 ### Invariants
 - Reduction ratio MUST NOT be optimized at the expense of INV-004.
@@ -1324,9 +1404,10 @@ Metrics MUST distinguish bytes from tokenizer-specific token estimates.
 - Published claims MUST identify methodology.
 
 ### Success criteria
-- substantial reduction demonstrated on noisy real workloads;
-- negligible/acceptable processing overhead demonstrated against the Technical Specification's release threshold;
-- critical-signal preservation remains intact.
+- reduction distributions are demonstrated on real noisy workloads rather than a hand-picked single percentage;
+- processing overhead satisfies the Technical Specification's release budget;
+- critical-signal preservation remains intact;
+- before G6, the project records an evidence-based release threshold or explicitly records why no universal reduction threshold is valid and which workload-specific thresholds apply.
 
 ### Quality standards
 - reproducible;
@@ -1533,7 +1614,7 @@ Before broad profile expansion:
 
 - core tests pass;
 - unknown fail-open proven;
-- generic hygiene safety corpus green;
+- safe-normalization safety corpus green;
 - deterministic behavior demonstrated;
 - critical-signal checks operational.
 
@@ -1607,8 +1688,8 @@ Metrics are ordered by importance:
 3. **Unknown-output safety**
 4. **Determinism**
 5. **Integration correctness**
-6. **Reduction ratio**
-7. **Performance overhead**
+6. **Performance overhead**
+7. **Reduction ratio**
 8. **Coverage breadth**
 
 A lower-ranked metric may not justify regression in a higher-ranked metric.
@@ -1662,9 +1743,27 @@ Detailed permissions and storage layout belong to the Technical Specification.
 
 ---
 
-# Part XVII — Change control
+# Part XVII — Change control and project progress
 
-## 55. Normative change rule
+## 55. Project progress obligations
+
+Project-management progress is not a runtime liveness property.
+
+Every active work package MUST have an explicit state from:
+
+~~~text
+NotStarted
+Active
+Blocked
+Complete
+Rejected
+~~~
+
+An active work package MUST NOT remain indefinitely "almost complete." If progress stops, it MUST become Blocked with a named blocker, be re-scoped through normative change, or be explicitly rejected.
+
+A release-blocking invariant violation MUST be fixed, reverted, or remain an explicit release blocker; it cannot be waived by silence.
+
+## 56. Normative change rule
 
 A change to this plan that affects any of the following requires explicit review:
 
@@ -1687,7 +1786,7 @@ The change description MUST state:
 
 ---
 
-## 56. Specification/implementation conflict rule
+## 57. Specification/implementation conflict rule
 
 If implementation behavior conflicts with this document:
 
@@ -1703,7 +1802,7 @@ Tests that merely encode conflicting implementation behavior do not override the
 
 # Part XVIII — Risk register
 
-## 57. Primary risks
+## 58. Primary risks
 
 | ID | Risk | Consequence | Primary mitigation |
 |---|---|---|---|
@@ -1726,7 +1825,7 @@ Risk status and ownership belong to the roadmap/project-tracking layer.
 
 # Part XIX — Simplicity constitution
 
-## 58. Simplicity test
+## 59. Simplicity test
 
 Before adding a subsystem, ask:
 
@@ -1742,7 +1841,7 @@ If answers indicate adjacency or avoidable complexity, reject the subsystem.
 
 ---
 
-## 59. Product constitution
+## 60. Product constitution
 
 The following statements are intentionally repetitive because they define the identity of the project:
 
@@ -1766,7 +1865,7 @@ The following statements are intentionally repetitive because they define the id
 
 # Part XX — Project completion
 
-## 60. Mature-state definition
+## 61. Mature-state definition
 
 HuGR-Lean is considered mature when:
 
@@ -1788,7 +1887,7 @@ HuGR-Lean is considered mature when:
 
 ---
 
-## 61. Project Definition of Done
+## 62. Project Definition of Done
 
 The project reaches its planned end-state only when the following scenario is demonstrated with reproducible evidence:
 
@@ -1824,15 +1923,15 @@ All MUST-level requirements, invariants, release gates, provenance obligations, 
 
 # Part XXI — Refinement obligations for the next documents
 
-## 62. Technical Specification obligations
+## 63. Technical Specification obligations
 
 The Technical Specification MUST refine, without weakening:
 
 - Observation and Lean Result;
 - critical-signal model;
 - classification;
-- generic-hygiene admission;
-- profile contract;
+- SafeNormalization applicability/admission;
+- Preservation Contract and profile contract;
 - detector ambiguity handling;
 - validation;
 - fail-open mechanics;
@@ -1842,6 +1941,8 @@ The Technical Specification MUST refine, without weakening:
 - host adapter contract;
 - error model;
 - security/privacy;
+- observable determinism projection;
+- streaming/chunking refinement if applicable;
 - concurrency/thread-safety if applicable;
 - resource bounds;
 - performance budgets;
@@ -1852,7 +1953,7 @@ Every global invariant in this document MUST map to one or more technical mechan
 
 ---
 
-## 63. Roadmap obligations
+## 64. Roadmap obligations
 
 The Roadmap / Execution Plan MUST map:
 
@@ -1869,14 +1970,14 @@ No roadmap item may be considered complete solely because code was merged.
 
 ---
 
-## 64. Traceability requirement
+## 65. Traceability requirement
 
 Before implementation scales beyond the core, the project SHOULD maintain a lightweight traceability matrix:
 
 | Plan property | Technical mechanism | Verification | Work package |
 |---|---|---|---|
 | INV-003 Fail open | TBD in Technical Spec | fixture/integration evidence | WP1/WP2 |
-| INV-004 Critical preservation | TBD | mandatory-signal corpus | WP3/WP7 |
+| INV-004 Critical preservation | TBD | Preservation Contract / mandatory-signal corpus | WP3/WP7 |
 | INV-006 Determinism | TBD | repeated fixture runs | WP1/WP7 |
 | INV-009 Raw fidelity | TBD | exact recovery test | WP4 |
 | INV-010 Workflow transparency | TBD | host integration test | WP5 |
@@ -1888,9 +1989,9 @@ Before implementation scales beyond the core, the project SHOULD maintain a ligh
 
 # Part XXII — Current decision
 
-## 65. Formal baseline
+## 66. Formal baseline
 
-Upon approval, this document becomes the normative project baseline.
+This reviewed document is the normative project baseline once the review commit is accepted on the default branch.
 
 The project state becomes:
 
@@ -1914,6 +2015,6 @@ No production architecture is considered settled until the Technical Specificati
 
 ---
 
-## 66. North Star
+## 67. North Star
 
 > **Remove everything we can prove is noise. Preserve everything we cannot prove is noise.**
