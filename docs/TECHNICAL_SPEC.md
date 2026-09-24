@@ -531,25 +531,32 @@ Protocol errors MUST NOT fabricate a `FilterResultV1`.
 Default maximum input for active filtering:
 
 ~~~text
-16 MiB UTF-8 boundary output
+4 MiB UTF-8 boundary output
+~~~
+
+Hard configurable maximum:
+
+~~~text
+16 MiB
 ~~~
 
 For larger input:
 
 - the core returns `failed_open`;
-- `output` equals the boundary input;
+- `replacement=None`;
+- logical output remains the adapter-owned boundary input;
 - diagnostic `input_too_large` is emitted;
 - no truncation is introduced by HuGR-Lean.
 
-This limit may be changed only through bounded configuration.
+The adapter SHOULD bypass subprocess invocation entirely when it already knows the boundary input exceeds the hard maximum.
 
-Valid configuration range:
+The binary MUST also bound protocol-envelope input before unbounded JSON allocation. Protocol V1 hard envelope limit:
 
 ~~~text
-1 MiB ≤ max_input_bytes ≤ 64 MiB
+128 MiB
 ~~~
 
-The host's own limits may be lower.
+The host's own limits may be much lower; OpenCode v1.18.32 defaults shell/tool truncation to 50 KiB or 2,000 lines.
 
 ---
 
@@ -566,10 +573,14 @@ Unknown arbitrary text is passthrough unless an applicability predicate is true.
 For Protocol V1, the primary applicability fact is:
 
 ~~~text
-presentation.terminal_text == true
+presentation == TerminalRendered
 ~~~
 
 This permits a narrow terminal-normalization set.
+
+`SourceV1::Shell` does **not** imply `TerminalRendered`.
+
+For the initial OpenCode adapter, presentation SHALL be `Unknown` because the hook exposes captured textual process output, not a host guarantee that every control sequence is presentation-only. Therefore unknown OpenCode shell output receives no generic terminal normalization unless a known profile authorizes it.
 
 ## 11.3 Initial terminal-safe transformations
 
@@ -626,17 +637,28 @@ Output-only profile recognition is prohibited for shell output in v1.
 
 ## 12.3 Simple shell parser
 
-HuGR-Lean v1 SHALL implement a deliberately conservative simple-command recognizer.
+HuGR-Lean v1 SHALL implement a deliberately conservative command recognizer.
 
-It may recognize:
+When `shell_dialect == Unknown`, only a **portable bare-command grammar** may be recognized:
 
 ~~~text
 executable arg1 arg2 ...
 ~~~
 
-with ordinary single/double quoting and basic escaping.
+where tokens contain no quoting, variable expansion, shell escapes, command substitution, or control operators.
 
-It MUST return `ComplexOrUnknown` when unquoted shell control semantics are present, including at least:
+This deliberately still recognizes common shapes such as:
+
+~~~text
+cargo test
+git status --short
+pytest -q
+npm test
+~~~
+
+When a dialect is explicitly known, a dialect-specific recognizer MAY support additional quoting/escaping only with fixtures.
+
+The recognizer MUST return `ComplexOrUnknown` when shell control semantics are present, including at least:
 
 ~~~text
 |
@@ -656,11 +678,19 @@ A complex command is passthrough/SafeNormalization unless a future explicit prof
 
 ## 12.4 Environment assignments
 
-Leading POSIX-style environment assignments MAY be skipped only if unambiguous:
+Leading POSIX-style environment assignments MAY be skipped only when:
+
+~~~text
+shell_dialect == Posix
+~~~
+
+and the assignment grammar is unambiguous:
 
 ~~~text
 FOO=bar cargo test
 ~~~
+
+With `shell_dialect == Unknown`, leading assignments are not stripped.
 
 The parser MUST NOT evaluate expansions.
 
@@ -690,6 +720,24 @@ Concrete Rust types may refine this API but MUST preserve the separation:
 ~~~text
 recognize → analyze → render
 ~~~
+
+Every profile MUST also declare input requirements equivalent to:
+
+~~~rust
+struct ProfileRequirements {
+    completeness: CompletenessRequirement,
+    termination: TerminationRequirement,
+}
+~~~
+
+A profile that produces complete aggregate claims SHOULD require:
+
+~~~text
+completeness = Complete
+termination = Exited
+~~~
+
+unless its fixture-backed Preservation Contract explicitly proves safe partial/unknown behavior.
 
 ## 13.2 Match
 
@@ -734,8 +782,19 @@ Conceptually:
 struct Signal {
     id: SignalId,
     canonical_text: String,
+    evidence: EvidenceRef,
+}
+
+enum EvidenceRef {
+    InputSpan { start: usize, end: usize },
+    OutcomeField,
+    Derived { rule_id: &'static str, source_spans: Vec<Span> },
 }
 ~~~
+
+Signal evidence is relative to the analysis baseline.
+
+A signal MUST NOT be created from unconstrained profile-authored prose. It must point to input evidence, an explicit host outcome field, or a mechanically defined derivation.
 
 ## 14.2 LeanWriter
 
@@ -771,7 +830,8 @@ Otherwise:
 
 ~~~text
 decision = failed_open
-output = SafeNormalized input if available, else boundary input
+replacement = None
+adapter-owned original output remains authoritative
 ~~~
 
 ## 14.4 Derived evidence
@@ -796,12 +856,23 @@ A successful Preservation Contract does not depend on raw storage being enabled.
 
 # 15. Non-expansion guard
 
+Define the **safe baseline** as:
+
+~~~text
+SafeNormalization replacement when SafeNormalization was valid
+otherwise original boundary input
+~~~
+
 After successful profile reduction:
 
 ~~~text
-if bytes(candidate) >= bytes(safe_normalized_input):
-    use safe_normalized_input
-    decision = normalized or passthrough
+if bytes(candidate) >= bytes(safe_baseline):
+    if safe_baseline differs from boundary input:
+        decision = normalized
+        replacement = Some(safe_baseline)
+    else:
+        decision = passthrough
+        replacement = None
 ~~~
 
 HuGR-Lean does not expand model context merely to advertise that it filtered something.
@@ -869,11 +940,13 @@ Source-code stripping from RTK is explicitly rejected from HuGR-Lean v1.
 
 For test runners:
 
+- complete pass/fail totals MUST NOT be emitted unless input completeness is `Complete`, except where a contract explicitly defines partial semantics;
+- profiles that depend on final process state SHOULD require `TerminationV1::Exited`;
 - passing test rows MAY be summarized when fixture-backed;
 - failing test identity MUST survive;
 - failure diagnostic blocks required by the profile MUST survive;
 - final exit/failure state MUST survive when supplied by host;
-- parse uncertainty fails open.
+- parse uncertainty, truncated input, or unknown termination fails open unless explicitly supported.
 
 ## 18.2 Compilers and linters
 
@@ -927,7 +1000,7 @@ When explicitly enabled:
 
 - storage is local only;
 - files contain the exact boundary input used by HuGR-Lean;
-- references are opaque random IDs;
+- references use 128 bits of OS randomness encoded as lowercase hex;
 - IDs are mapped only within the configured cache directory;
 - path traversal is impossible through the public raw ID;
 - Unix directory mode target: `0700`;
@@ -955,15 +1028,21 @@ A raw artifact is written only when all are true:
 
 ~~~text
 raw.enabled
-AND decision == reduced
+AND decision ∈ {normalized, reduced}
 AND saved_bytes >= 1024
 ~~~
 
 This avoids writing raw copies for trivial changes.
 
-## 19.5 Store pressure
+## 19.5 Store pressure and atomicity
 
-If the store exceeds its configured maximum, oldest eligible artifacts are removed first.
+Artifacts MUST be created with create-new semantics so concurrent one-shot processes cannot overwrite each other.
+
+Writes MUST become visible only after the complete artifact is durable enough for normal retrieval; partial files MUST NOT be returned as valid raw artifacts.
+
+If the store exceeds its configured maximum, oldest artifacts may be removed first, including before nominal TTL expiry. A later request for an evicted artifact returns explicit `unavailable`; the raw reference is never silently redirected to different content.
+
+Cleanup races may produce "already removed" outcomes but MUST NOT delete outside the raw-store root.
 
 Raw-store failure MUST NOT fail the tool result.
 
@@ -1032,7 +1111,14 @@ Metrics compare:
 ~~~text
 ObservationV1.output
 vs
-FilterResultV1.output
+effective model-visible output
+~~~
+
+where effective model-visible output is:
+
+~~~text
+replacement        for normalized/reduced
+ObservationV1.output for passthrough/failed_open
 ~~~
 
 They do not credit HuGR-Lean for upstream host truncation.
@@ -1049,11 +1135,11 @@ Configuration exists to disable behavior, bound resources, or enable raw retenti
 
 ## 22.2 Core configuration
 
-Conceptual v1:
+Protocol/config v1 uses TOML:
 
 ~~~toml
 enabled = true
-max_input_bytes = 16777216
+max_input_bytes = 4194304
 
 [raw]
 enabled = false
@@ -1061,13 +1147,30 @@ retention_hours = 6
 max_bytes = 134217728
 
 [exclude]
-tools = []
+profiles = []
 commands = []
 ~~~
 
-Exact file format may be TOML if the chosen parser cost is justified; otherwise a simpler format MAY be selected before implementation.
+Config lookup order:
 
-The config surface itself is normative; syntax is not yet.
+1. `HUGR_LEAN_CONFIG` when set;
+2. Unix/macOS: ${XDG_CONFIG_HOME:-$HOME/.config}/hugr-lean/config.toml;
+3. Windows: `%APPDATA%\\HuGR-Lean\\config.toml`;
+4. built-in defaults when no file exists.
+
+Invalid existing config is an explicit configuration error. The adapter fails open for that tool result; it MUST NOT silently reinterpret invalid values as defaults.
+
+`exclude.profiles` is an exact list of profile IDs.
+
+`exclude.commands` uses exact normalized executable/subcommand roots, not arbitrary regex.
+
+Environment switch:
+
+~~~text
+HUGR_LEAN_DISABLED=1
+~~~
+
+allows adapters to bypass the engine without spawning it.
 
 ## 22.3 No compression level
 
