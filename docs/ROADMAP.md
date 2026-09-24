@@ -497,6 +497,22 @@ Disallowed:
 
 # 13. GitHub work-item hierarchy
 
+## 13.1 Mandatory work-item axioms
+
+Every GitHub work item in HuGR-Lean — Epic, Work Package, child issue, or any future independently tracked implementation/review issue — MUST explicitly contain:
+
+1. **Invariants**
+2. **Success Criteria**
+3. **Quality Standards**
+4. **Completeness Criteria**
+5. **Definition of Done**
+
+These sections are mandatory even when the issue is primarily research, documentation, verification, packaging, or review work.
+
+A child issue MUST preserve the invariants of its parent WP. A WP MUST preserve the invariants of its parent Epic and the normative plan/specification. An Epic MUST preserve the project-level invariants.
+
+An issue is not planning-complete if any of the five sections is absent.
+
 The execution hierarchy has been created.
 
 ~~~text
