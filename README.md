@@ -34,6 +34,6 @@ HuGR-Lean is not a memory system, RAG layer, vector database, semantic compresso
 
 ## Status
 
-Planning.
+Project plan formalized. Technical Specification is the next normative step.
 
 See [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md).
