@@ -1,9 +1,9 @@
 # HuGR-Lean — Technical Specification
 
 **Document ID:** HL-SPEC-001  
-**Version:** 0.2  
-**Status:** Technical baseline — adversarial review in progress  
-**Review state:** Critical/High findings being incorporated  
+**Version:** 1.0  
+**Status:** Approved Technical Specification  
+**Review state:** Adversarial review 01 passed; all Critical/High findings closed  
 **Normative parent:** HL-PLAN-001 v1.1  
 **Date:** 2026-09-24  
 **Scope:** Concrete architecture and technical mechanisms required to refine the Formal Project Plan
@@ -2061,26 +2061,26 @@ HL-SPEC-001 is implemented when all of the following are demonstrably true:
 
 # 46. Specification gate
 
-This document reaches **Approved Technical Specification** only after:
+Approval gate result:
 
-1. adversarial technical review;
-2. donor architecture review against the pinned revisions;
-3. OpenCode adapter feasibility review against at least one concrete supported release;
-4. performance-budget sanity review;
-5. security/privacy review of raw storage;
-6. consistency check against HL-PLAN-001 v1.1;
-7. all Critical/High review findings are either fixed or explicitly block approval.
+1. adversarial technical review — **PASS**;
+2. donor architecture review against pinned revisions — **PASS**;
+3. OpenCode adapter feasibility against stable v1.18.32 — **PASS**;
+4. performance-budget sanity review — **PASS, benchmark verification deferred to implementation**;
+5. security/privacy review of raw storage — **PASS**;
+6. consistency check against HL-PLAN-001 v1.1 — **PASS**;
+7. unresolved Critical/High findings — **0**.
 
-Until then:
+Review record:
 
 ~~~text
-project state = Formalized
-technical spec = Draft
+docs/reviews/HL-SPEC-001-REVIEW-01.md
 ~~~
 
-After approval:
+Current state:
 
 ~~~text
 project state = TechnicallySpecified
+technical spec = Approved v1.0
 next artifact = Roadmap / Execution Plan
 ~~~
