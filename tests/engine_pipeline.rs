@@ -88,11 +88,7 @@ impl Profile for TestProfile {
         Ok(analysis.rendered.clone())
     }
 
-    fn validate(
-        &self,
-        analysis: &dyn ProfileAnalysis,
-        rendered: &str,
-    ) -> Result<(), ProfileError> {
+    fn validate(&self, analysis: &dyn ProfileAnalysis, rendered: &str) -> Result<(), ProfileError> {
         let analysis = analysis
             .as_any()
             .downcast_ref::<TestAnalysis>()
@@ -168,10 +164,7 @@ fn two_matching_profiles_fail_open_as_ambiguous() {
     assert_eq!(result.decision, DecisionV1::FailedOpen);
     assert_eq!(result.replacement, None);
     assert_eq!(result.profile, None);
-    assert_eq!(
-        result.diagnostics,
-        vec![DiagnosticCodeV1::AmbiguousProfile]
-    );
+    assert_eq!(result.diagnostics, vec![DiagnosticCodeV1::AmbiguousProfile]);
 }
 
 #[test]
@@ -185,7 +178,9 @@ fn incomplete_requirement_fails_open_before_analysis() {
     let mut observation = shell_observation("truncated cargo output");
     observation.completeness = CompletenessV1::Truncated;
 
-    let result = engine(vec![Box::new(profile)]).process(observation).unwrap();
+    let result = engine(vec![Box::new(profile)])
+        .process(observation)
+        .unwrap();
 
     assert_eq!(result.decision, DecisionV1::FailedOpen);
     assert_eq!(result.replacement, None);
