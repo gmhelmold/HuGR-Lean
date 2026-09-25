@@ -32,6 +32,8 @@ npm test
 ./node_modules/.bin/eslint src/lib.rs
 ~~~
 
+Tokens are separated only by ASCII space or tab. Newline, carriage return, vertical tab, form feed, and other control whitespace are rejected rather than reinterpreted.
+
 Argument tokens use a deliberately narrow ASCII allowlist:
 
 ~~~text
