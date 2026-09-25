@@ -133,7 +133,15 @@ pub trait Profile: Send + Sync {
         ProfileRequirements::ANY
     }
 
-    fn recognize(&self, context: &RouteContext<'_>) -> ProfileMatch;
+    /// First-stage recognition. This method receives invocation identity only,
+    /// so shell profiles cannot route solely from output resemblance.
+    fn recognize(&self, identity: &InvocationIdentity) -> ProfileMatch;
+
+    /// Optional second-stage shape guard. The engine calls this only after
+    /// identity recognition has matched.
+    fn shape_guard(&self, _context: &RouteContext<'_>) -> ProfileMatch {
+        ProfileMatch::Match
+    }
 
     fn analyze(
         &self,
