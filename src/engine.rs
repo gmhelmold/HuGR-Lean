@@ -193,10 +193,7 @@ impl Engine {
     }
 }
 
-fn baseline_result(
-    input_bytes: usize,
-    normalization: &SafeNormalizationOutcome,
-) -> FilterResultV1 {
+fn baseline_result(input_bytes: usize, normalization: &SafeNormalizationOutcome) -> FilterResultV1 {
     match normalization {
         SafeNormalizationOutcome::Changed(replacement) => {
             normalized(input_bytes, replacement.clone())
@@ -297,9 +294,7 @@ mod tests {
         let input_bytes = observation.output.len();
 
         let result = Engine::default()
-            .process_with_normalizer(observation, |_| {
-                Err(SafeNormalizationError::NonIdempotent)
-            })
+            .process_with_normalizer(observation, |_| Err(SafeNormalizationError::NonIdempotent))
             .unwrap();
 
         assert_eq!(result.decision, DecisionV1::FailedOpen);
