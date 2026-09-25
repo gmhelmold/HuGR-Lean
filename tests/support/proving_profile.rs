@@ -82,8 +82,7 @@ impl Profile for ProvingProfile {
             .ok_or_else(ProfileError::validate)?;
 
         let expected = format!("{}\n", analysis.signal.canonical_text());
-        if rendered.text() != expected
-            || !rendered.emitted_signal_ids().contains(&PROOF_SIGNAL_ID)
+        if rendered.text() != expected || !rendered.emitted_signal_ids().contains(&PROOF_SIGNAL_ID)
         {
             return Err(ProfileError::validate());
         }
