@@ -111,3 +111,87 @@ fn proving_profile_is_not_registered_by_default() {
 
     assert!(error.to_string().contains("expected decision Reduced"));
 }
+
+
+#[test]
+fn normalization_kind_requires_normalization_metadata() {
+    let invalid = r#"
+schema = 1
+id = "invalid-normalization"
+kind = "normalization"
+
+[observation]
+source = "other"
+command = ""
+shell_dialect = "unknown"
+termination = "unknown"
+completeness = "complete"
+presentation = "terminal_rendered"
+
+[expect]
+decision = "passthrough"
+profile = ""
+required_literals = []
+forbidden_literals = []
+properties = []
+
+[preservation]
+mandatory_signal_ids = []
+permitted_removals = []
+
+[provenance]
+kind = "synthetic"
+source_repo = ""
+source_commit = ""
+source_path = ""
+license = ""
+origin_issue = 27
+notes = ""
+"#;
+
+    let case = parse_case_toml(invalid).unwrap();
+    assert!(support::fixture::validate_fixture_case(&case).is_err());
+}
+
+#[test]
+fn normalization_metadata_is_forbidden_on_non_normalization_kind() {
+    let invalid = r#"
+schema = 1
+id = "invalid-core"
+kind = "core"
+
+[observation]
+source = "other"
+command = ""
+shell_dialect = "unknown"
+termination = "unknown"
+completeness = "complete"
+presentation = "unknown"
+
+[expect]
+decision = "passthrough"
+profile = ""
+required_literals = []
+forbidden_literals = []
+properties = []
+
+[preservation]
+mandatory_signal_ids = []
+permitted_removals = []
+
+[provenance]
+kind = "synthetic"
+source_repo = ""
+source_commit = ""
+source_path = ""
+license = ""
+origin_issue = 27
+notes = ""
+
+[normalization]
+primitive = "strip_sgr"
+"#;
+
+    let case = parse_case_toml(invalid).unwrap();
+    assert!(support::fixture::validate_fixture_case(&case).is_err());
+}
