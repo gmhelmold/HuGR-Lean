@@ -49,6 +49,67 @@ pub fn terminal_safe_text(observation: &ObservationV1) -> Option<TerminalSafeTex
     }
 }
 
+
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SafeNormalizationOutcome {
+    NotApplicable,
+    Unchanged,
+    Changed(String),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SafeNormalizationError {
+    Expanded,
+    NonIdempotent,
+}
+
+/// Compose all currently admitted generic terminal normalizations.
+///
+/// Order is intentional:
+///
+/// 1. strip proven SGR styling;
+/// 2. evaluate carriage-redraw proof on the resulting visible ASCII frames.
+///
+/// The function self-checks non-expansion and idempotence before returning a
+/// changed baseline.
+pub fn safe_normalize(
+    observation: &ObservationV1,
+) -> Result<SafeNormalizationOutcome, SafeNormalizationError> {
+    if observation.presentation != PresentationV1::TerminalRendered {
+        return Ok(SafeNormalizationOutcome::NotApplicable);
+    }
+
+    let candidate = compose_terminal_normalization(&observation.output);
+    validate_composed_candidate(&observation.output, &candidate)?;
+
+    if candidate == observation.output {
+        Ok(SafeNormalizationOutcome::Unchanged)
+    } else {
+        Ok(SafeNormalizationOutcome::Changed(candidate))
+    }
+}
+
+fn compose_terminal_normalization(input: &str) -> String {
+    let without_sgr = strip_recognized_sgr(input);
+    collapse_monotonic_ascii_redraws(&without_sgr)
+}
+
+fn validate_composed_candidate(
+    input: &str,
+    candidate: &str,
+) -> Result<(), SafeNormalizationError> {
+    if candidate.len() > input.len() {
+        return Err(SafeNormalizationError::Expanded);
+    }
+
+    if compose_terminal_normalization(candidate) != candidate {
+        return Err(SafeNormalizationError::NonIdempotent);
+    }
+
+    Ok(())
+}
+
 fn strip_recognized_sgr(input: &str) -> String {
     let bytes = input.as_bytes();
     let mut output = String::with_capacity(input.len());
@@ -140,7 +201,14 @@ fn collapse_redraw_body(body: &str) -> Option<&str> {
 
 #[cfg(test)]
 mod tests {
-    use super::{collapse_monotonic_ascii_redraws, strip_recognized_sgr};
+    use super::{
+        collapse_monotonic_ascii_redraws, safe_normalize, strip_recognized_sgr,
+        validate_composed_candidate, SafeNormalizationError, SafeNormalizationOutcome,
+    };
+    use crate::protocol::{
+        CompletenessV1, ObservationV1, PresentationV1, ShellDialectV1, SourceV1, TerminationV1,
+        PROTOCOL_V1,
+    };
 
     #[test]
     fn strips_only_recognized_sgr_sequences() {
@@ -247,6 +315,61 @@ mod tests {
             assert_eq!(twice, once);
             assert!(once.len() <= value.len());
         }
+    }
+
+    fn observation(presentation: PresentationV1, output: &str) -> ObservationV1 {
+        ObservationV1 {
+            schema_version: PROTOCOL_V1,
+            source: SourceV1::Other,
+            command: None,
+            shell_dialect: ShellDialectV1::Unknown,
+            output: output.to_owned(),
+            termination: TerminationV1::unknown(),
+            completeness: CompletenessV1::Complete,
+            presentation,
+        }
+    }
+
+    #[test]
+    fn composed_normalization_strips_sgr_before_proving_redraw() {
+        let input = "\u{1b}[31m9%\u{1b}[0m\r\u{1b}[33m10%\u{1b}[0m\r\u{1b}[32m100%\u{1b}[0m\n";
+        let result = safe_normalize(&observation(PresentationV1::TerminalRendered, input)).unwrap();
+
+        assert_eq!(
+            result,
+            SafeNormalizationOutcome::Changed("100%\n".to_owned())
+        );
+    }
+
+    #[test]
+    fn composed_normalization_is_not_applicable_without_presentation_provenance() {
+        let input = "\u{1b}[31m9%\u{1b}[0m\r100%\n";
+        let result = safe_normalize(&observation(PresentationV1::Unknown, input)).unwrap();
+
+        assert_eq!(result, SafeNormalizationOutcome::NotApplicable);
+    }
+
+    #[test]
+    fn composed_normalization_reports_unchanged_for_safe_plain_terminal_text() {
+        let result = safe_normalize(&observation(
+            PresentationV1::TerminalRendered,
+            "plain terminal text\n",
+        ))
+        .unwrap();
+
+        assert_eq!(result, SafeNormalizationOutcome::Unchanged);
+    }
+
+    #[test]
+    fn composed_candidate_validation_rejects_expansion_and_non_idempotence() {
+        assert_eq!(
+            validate_composed_candidate("x", "xx"),
+            Err(SafeNormalizationError::Expanded)
+        );
+        assert_eq!(
+            validate_composed_candidate("\u{1b}[31mred\u{1b}[0m", "\u{1b}[31mred\u{1b}[0m"),
+            Err(SafeNormalizationError::NonIdempotent)
+        );
     }
 
     #[test]
