@@ -232,7 +232,10 @@ pub fn verify_normalization_fixture(fixture: &LoadedFixture) -> Result<(), Harne
         .normalization
         .ok_or_else(|| HarnessError::new("normalization primitive is missing"))?;
     let observation = fixture.observation()?;
-    let result = run_normalization_primitive(&observation, primitive)?;
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        run_normalization_primitive(&observation, primitive)
+    }))
+    .map_err(|_| HarnessError::new(format!("fixture {} panicked", fixture.case.id)))??;
     verify_result(fixture, &observation, &result, |next| {
         run_normalization_primitive(next, primitive)
     })
@@ -398,7 +401,15 @@ where
 
 fn validate_kind_and_normalization(case: &FixtureCase) -> Result<(), HarnessError> {
     match (case.kind, case.normalization) {
-        (FixtureKind::Normalization, Some(_)) => Ok(()),
+        (FixtureKind::Normalization, Some(_))
+            if case.expect.profile.is_empty()
+                && case.preservation.mandatory_signal_ids.is_empty() =>
+        {
+            Ok(())
+        }
+        (FixtureKind::Normalization, Some(_)) => Err(HarnessError::new(
+            "normalization fixtures must not declare a profile or mandatory signals",
+        )),
         (FixtureKind::Normalization, None) => Err(HarnessError::new(
             "normalization fixture requires [normalization] metadata",
         )),
