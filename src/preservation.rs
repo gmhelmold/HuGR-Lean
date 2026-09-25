@@ -121,11 +121,7 @@ pub struct Signal {
 }
 
 impl Signal {
-    fn verbatim(
-        id: SignalId,
-        input: &str,
-        span: ByteSpan,
-    ) -> Result<Self, EvidenceError> {
+    fn verbatim(id: SignalId, input: &str, span: ByteSpan) -> Result<Self, EvidenceError> {
         let text = span.extract(input)?.to_owned();
         Ok(Self {
             id,
