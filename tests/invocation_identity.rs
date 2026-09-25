@@ -174,9 +174,11 @@ fn rejects_shell_control_operators_and_redirection() {
 }
 
 #[test]
-fn rejects_multi_command_newlines_and_carriage_returns() {
+fn rejects_non_space_tab_ascii_whitespace() {
     assert_complex("cargo test\necho done", ShellDialectV1::Unknown);
     assert_complex("cargo test\recho done", ShellDialectV1::Unknown);
+    assert_complex("cargo\u{000b}test", ShellDialectV1::Unknown);
+    assert_complex("cargo\u{000c}test", ShellDialectV1::Unknown);
 }
 
 #[test]
