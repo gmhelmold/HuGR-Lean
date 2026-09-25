@@ -35,6 +35,10 @@ termination = "unknown"    # unknown | exited | aborted | timed_out
 completeness = "complete"  # unknown | complete | truncated
 presentation = "unknown"   # unknown | terminal_rendered
 
+# Required only when kind = "normalization":
+# [normalization]
+# primitive = "strip_sgr"   # strip_sgr | carriage_redraw
+
 [expect]
 decision = "passthrough"   # passthrough | normalized | reduced | failed_open
 profile = ""
@@ -66,6 +70,21 @@ Fixture TOML is intentionally distinct from the Protocol V1 JSON wire representa
 ### Observation
 
 Fixture metadata describes the exact HuGR-Lean boundary observation. It must not pretend to know pre-host bytes that were never captured.
+
+### Normalization fixtures
+
+When `kind = "normalization"`, the fixture MUST include:
+
+~~~toml
+[normalization]
+primitive = "strip_sgr" # or "carriage_redraw"
+~~~
+
+Normalization fixtures exercise the primitive directly through the same applicability boundary used by production code.
+
+They MUST NOT declare a profile or mandatory Preservation Contract signals.
+
+The normalization fixture runner emits conceptual `passthrough` when applicability is absent or output is byte-identical, and `normalized` when the primitive produces a shorter changed output. This is test-harness behavior; engine integration occurs in WP2.3.
 
 ### Exact golden outputs
 
