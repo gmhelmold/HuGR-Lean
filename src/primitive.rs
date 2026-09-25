@@ -45,13 +45,6 @@ pub fn line_prefix_spans(input: &str, prefix: &str) -> Result<Vec<ByteSpan>, Pri
         offset += chunk.len();
     }
 
-    if offset < input.len() {
-        let tail = &input[offset..];
-        if tail.starts_with(prefix) && !tail.is_empty() {
-            spans.push(ByteSpan::new(offset, input.len()));
-        }
-    }
-
     Ok(spans)
 }
 
@@ -73,10 +66,6 @@ pub fn exact_line_spans(input: &str, value: &str) -> Result<Vec<ByteSpan>, Primi
         }
 
         offset += chunk.len();
-    }
-
-    if offset < input.len() && &input[offset..] == value {
-        spans.push(ByteSpan::new(offset, input.len()));
     }
 
     Ok(spans)
@@ -126,6 +115,20 @@ mod tests {
         assert_eq!(
             exact_line_spans(input, "ok").unwrap(),
             vec![ByteSpan::new(10, 12)]
+        );
+    }
+
+    #[test]
+    fn standalone_trailing_carriage_return_is_content_not_line_ending() {
+        let input = "FAIL\r";
+        assert_eq!(
+            line_prefix_spans(input, "FAIL").unwrap(),
+            vec![ByteSpan::new(0, input.len())]
+        );
+        assert!(exact_line_spans(input, "FAIL").unwrap().is_empty());
+        assert_eq!(
+            exact_line_spans(input, "FAIL\r").unwrap(),
+            vec![ByteSpan::new(0, input.len())]
         );
     }
 
