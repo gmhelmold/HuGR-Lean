@@ -120,7 +120,6 @@ pub enum FixtureProvenanceKind {
 
 #[derive(Debug, Clone)]
 pub struct LoadedFixture {
-    pub root: PathBuf,
     pub case: FixtureCase,
     pub input: String,
     pub expected: Option<String>,
@@ -153,6 +152,7 @@ impl LoadedFixture {
             )));
         }
 
+        validate_kind_and_provenance(&case)?;
         validate_provenance(&case)?;
         validate_preservation_metadata(&case)?;
 
@@ -166,7 +166,6 @@ impl LoadedFixture {
         };
 
         Ok(Self {
-            root,
             case,
             input,
             expected,
@@ -303,6 +302,19 @@ fn verify_property(
     }
 
     Ok(())
+}
+
+fn validate_kind_and_provenance(case: &FixtureCase) -> Result<(), HarnessError> {
+    match (case.kind, case.provenance.kind) {
+        (FixtureKind::Regression, FixtureProvenanceKind::Regression) => Ok(()),
+        (FixtureKind::Regression, _) => Err(HarnessError::new(
+            "regression fixture kind requires regression provenance",
+        )),
+        (_, FixtureProvenanceKind::Regression) => Err(HarnessError::new(
+            "regression provenance requires fixture kind = regression",
+        )),
+        _ => Ok(()),
+    }
 }
 
 fn validate_preservation_metadata(case: &FixtureCase) -> Result<(), HarnessError> {
