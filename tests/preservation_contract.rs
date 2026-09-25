@@ -6,7 +6,6 @@ use hugr_lean::preservation::{
 };
 use hugr_lean::profile::{
     AnalysisBundle, Profile, ProfileAnalysis, ProfileContext, ProfileError, ProfileMatch,
-    RouteContext,
 };
 use hugr_lean::protocol::{
     CompletenessV1, DecisionV1, DiagnosticCodeV1, ObservationV1, PresentationV1, ShellDialectV1,
