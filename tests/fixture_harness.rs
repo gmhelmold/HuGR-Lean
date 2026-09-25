@@ -1,16 +1,37 @@
 mod support;
 
+use std::fs;
 use std::path::{Path, PathBuf};
 
 use hugr_lean::engine::{Engine, EngineConfig};
 
-use support::fixture::{parse_case_toml, verify_fixture, LoadedFixture};
+use support::fixture::{
+    parse_case_toml, verify_fixture, verify_normalization_fixture, FixtureKind, FixtureProperty,
+    LoadedFixture, NormalizationPrimitive,
+};
 use support::proving_profile::{ProvingProfile, PROOF_SIGNAL_NAME};
 
 fn fixture_root(relative: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("fixtures")
         .join(relative)
+}
+
+fn normalization_fixtures() -> Vec<LoadedFixture> {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("fixtures")
+        .join("normalization");
+    let mut directories: Vec<PathBuf> = fs::read_dir(root)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| path.is_dir())
+        .collect();
+    directories.sort();
+
+    directories
+        .into_iter()
+        .map(|path| LoadedFixture::load(path).unwrap())
+        .collect()
 }
 
 #[test]
@@ -193,4 +214,74 @@ primitive = "strip_sgr"
 
     let case = parse_case_toml(invalid).unwrap();
     assert!(support::fixture::validate_fixture_case(&case).is_err());
+}
+
+
+#[test]
+fn all_normalization_corpus_cases_execute() {
+    let fixtures = normalization_fixtures();
+    assert!(
+        fixtures.len() >= 12,
+        "adversarial normalization corpus unexpectedly small"
+    );
+
+    for fixture in fixtures {
+        assert_eq!(fixture.case.kind, FixtureKind::Normalization);
+        verify_normalization_fixture(&fixture)
+            .unwrap_or_else(|error| panic!("{}: {error}", fixture.case.id));
+    }
+}
+
+#[test]
+fn every_normalization_primitive_has_positive_and_negative_fixture_evidence() {
+    let fixtures = normalization_fixtures();
+
+    for primitive in [
+        NormalizationPrimitive::StripSgr,
+        NormalizationPrimitive::CollapseCarriageRedraws,
+    ] {
+        let matching: Vec<_> = fixtures
+            .iter()
+            .filter(|fixture| {
+                fixture
+                    .case
+                    .normalization
+                    .as_ref()
+                    .map(|normalization| normalization.primitive == primitive)
+                    .unwrap_or(false)
+            })
+            .collect();
+
+        assert!(
+            matching
+                .iter()
+                .any(|fixture| fixture.case.expect.decision == hugr_lean::protocol::DecisionV1::Normalized),
+            "{primitive:?} has no positive normalized fixture"
+        );
+        assert!(
+            matching
+                .iter()
+                .any(|fixture| fixture.case.expect.decision == hugr_lean::protocol::DecisionV1::Passthrough),
+            "{primitive:?} has no negative passthrough fixture"
+        );
+    }
+}
+
+#[test]
+fn negative_normalization_fixtures_require_exact_passthrough_property() {
+    for fixture in normalization_fixtures() {
+        if fixture.case.expect.decision != hugr_lean::protocol::DecisionV1::Passthrough {
+            continue;
+        }
+
+        assert!(
+            fixture
+                .case
+                .expect
+                .properties
+                .contains(&FixtureProperty::PassthroughExact),
+            "{} negative case does not require passthrough_exact",
+            fixture.case.id
+        );
+    }
 }
