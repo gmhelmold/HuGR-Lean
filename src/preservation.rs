@@ -14,7 +14,6 @@ pub struct SignalId(&'static str);
 
 impl SignalId {
     pub const fn new(value: &'static str) -> Self {
-        assert!(!value.is_empty(), "SignalId must not be empty");
         Self(value)
     }
 
@@ -122,6 +121,7 @@ pub struct Signal {
 
 impl Signal {
     fn verbatim(id: SignalId, input: &str, span: ByteSpan) -> Result<Self, EvidenceError> {
+        validate_signal_id(id)?;
         let text = span.extract(input)?.to_owned();
         Ok(Self {
             id,
@@ -136,6 +136,7 @@ impl Signal {
         span: ByteSpan,
         rule: CanonicalizationRule,
     ) -> Result<Self, EvidenceError> {
+        validate_signal_id(id)?;
         let text = rule.apply(span.extract(input)?);
         if text.is_empty() {
             return Err(EvidenceError::EmptyCanonicalText);
@@ -155,6 +156,7 @@ impl Signal {
         field: OutcomeField,
         observation: &ObservationV1,
     ) -> Result<Self, EvidenceError> {
+        validate_signal_id(id)?;
         let canonical_text = match field {
             OutcomeField::ExitCode => {
                 if observation.termination.kind != TerminationKindV1::Exited {
@@ -198,6 +200,7 @@ impl Signal {
         source_spans: Vec<ByteSpan>,
         noun: &'static str,
     ) -> Result<Self, EvidenceError> {
+        validate_signal_id(id)?;
         validate_rule_id(rule_id)?;
         validate_count_source_spans(input, &source_spans)?;
         let canonical_text = format!("{} {noun}", source_spans.len());
@@ -311,6 +314,7 @@ pub enum EvidenceError {
     UnavailableOutcomeField,
     EmptyCanonicalText,
     InvalidRuleId,
+    InvalidSignalId,
     NonMonotonicSourceSpans,
 }
 
@@ -446,6 +450,14 @@ impl RenderedOutput {
     }
 }
 
+fn validate_signal_id(signal_id: SignalId) -> Result<(), EvidenceError> {
+    if signal_id.as_str().is_empty() {
+        Err(EvidenceError::InvalidSignalId)
+    } else {
+        Ok(())
+    }
+}
+
 fn validate_rule_id(rule_id: &'static str) -> Result<(), EvidenceError> {
     if rule_id.is_empty() {
         Err(EvidenceError::InvalidRuleId)
@@ -506,6 +518,14 @@ mod tests {
             completeness: CompletenessV1::Complete,
             presentation: PresentationV1::Unknown,
         }
+    }
+
+    #[test]
+    fn empty_signal_id_is_rejected_without_panicking() {
+        assert_eq!(
+            Signal::verbatim(SignalId::new(""), "x", ByteSpan::new(0, 1)),
+            Err(EvidenceError::InvalidSignalId)
+        );
     }
 
     #[test]
