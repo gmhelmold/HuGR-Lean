@@ -83,12 +83,10 @@ fn fixture_loader_maps_exited_termination_only_with_exit_code() {
     assert_eq!(observation.termination.code, Some(0));
 }
 
-
 #[test]
 fn fixture_loader_rejects_contradictory_or_missing_exit_codes() {
     let mut contradictory = LoadedFixture::load(fixture_root("proving/engine-path")).unwrap();
-    contradictory.case.observation.termination =
-        hugr_lean::protocol::TerminationKindV1::Unknown;
+    contradictory.case.observation.termination = hugr_lean::protocol::TerminationKindV1::Unknown;
     assert!(contradictory.observation().is_err());
 
     let mut missing = LoadedFixture::load(fixture_root("proving/engine-path")).unwrap();
