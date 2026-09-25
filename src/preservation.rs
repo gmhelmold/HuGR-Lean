@@ -6,6 +6,7 @@
 
 use std::collections::BTreeSet;
 
+use crate::profile::ProfileContext;
 use crate::protocol::{CompletenessV1, ObservationV1, TerminationKindV1};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -120,7 +121,7 @@ pub struct Signal {
 }
 
 impl Signal {
-    pub(crate) fn verbatim(
+    fn verbatim(
         id: SignalId,
         input: &str,
         span: ByteSpan,
@@ -133,7 +134,7 @@ impl Signal {
         })
     }
 
-    pub(crate) fn canonicalized(
+    fn canonicalized(
         id: SignalId,
         input: &str,
         span: ByteSpan,
@@ -153,7 +154,7 @@ impl Signal {
         })
     }
 
-    pub(crate) fn from_outcome(
+    fn from_outcome(
         id: SignalId,
         field: OutcomeField,
         observation: &ObservationV1,
@@ -194,7 +195,7 @@ impl Signal {
         })
     }
 
-    pub(crate) fn derived_count(
+    fn derived_count(
         id: SignalId,
         rule_id: &'static str,
         input: &str,
@@ -236,7 +237,7 @@ pub struct DerivedEvidence {
 }
 
 impl DerivedEvidence {
-    pub(crate) fn count(
+    fn count(
         rule_id: &'static str,
         input: &str,
         source_spans: Vec<ByteSpan>,
@@ -262,6 +263,53 @@ impl DerivedEvidence {
 
     pub fn source_spans(&self) -> &[ByteSpan] {
         &self.source_spans
+    }
+}
+
+
+impl ProfileContext<'_> {
+    pub fn verbatim_signal(
+        &self,
+        id: SignalId,
+        span: ByteSpan,
+    ) -> Result<Signal, EvidenceError> {
+        Signal::verbatim(id, self.safe_baseline, span)
+    }
+
+    pub fn canonicalized_signal(
+        &self,
+        id: SignalId,
+        span: ByteSpan,
+        rule: CanonicalizationRule,
+    ) -> Result<Signal, EvidenceError> {
+        Signal::canonicalized(id, self.safe_baseline, span, rule)
+    }
+
+    pub fn outcome_signal(
+        &self,
+        id: SignalId,
+        field: OutcomeField,
+    ) -> Result<Signal, EvidenceError> {
+        Signal::from_outcome(id, field, self.observation)
+    }
+
+    pub fn derived_count_signal(
+        &self,
+        id: SignalId,
+        rule_id: &'static str,
+        source_spans: Vec<ByteSpan>,
+        noun: &'static str,
+    ) -> Result<Signal, EvidenceError> {
+        Signal::derived_count(id, rule_id, self.safe_baseline, source_spans, noun)
+    }
+
+    pub fn derived_count(
+        &self,
+        rule_id: &'static str,
+        source_spans: Vec<ByteSpan>,
+        noun: &'static str,
+    ) -> Result<DerivedEvidence, EvidenceError> {
+        DerivedEvidence::count(rule_id, self.safe_baseline, source_spans, noun)
     }
 }
 
