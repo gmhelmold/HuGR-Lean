@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use hugr_lean::engine::{Engine, EngineConfig};
 
 use support::fixture::{parse_case_toml, verify_fixture, LoadedFixture};
-use support::proving_profile::ProvingProfile;
+use support::proving_profile::{ProvingProfile, PROOF_SIGNAL_NAME};
 
 fn fixture_root(relative: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -81,6 +81,29 @@ fn fixture_loader_maps_exited_termination_only_with_exit_code() {
     let observation = fixture.observation().unwrap();
 
     assert_eq!(observation.termination.code, Some(0));
+}
+
+
+#[test]
+fn fixture_loader_rejects_contradictory_or_missing_exit_codes() {
+    let mut contradictory = LoadedFixture::load(fixture_root("proving/engine-path")).unwrap();
+    contradictory.case.observation.termination =
+        hugr_lean::protocol::TerminationKindV1::Unknown;
+    assert!(contradictory.observation().is_err());
+
+    let mut missing = LoadedFixture::load(fixture_root("proving/engine-path")).unwrap();
+    missing.case.observation.exit_code = None;
+    assert!(missing.observation().is_err());
+}
+
+#[test]
+fn proving_fixture_annotation_matches_runtime_preservation_signal() {
+    let fixture = LoadedFixture::load(fixture_root("proving/engine-path")).unwrap();
+
+    assert_eq!(
+        fixture.case.preservation.mandatory_signal_ids,
+        vec![PROOF_SIGNAL_NAME.to_owned()]
+    );
 }
 
 #[test]
