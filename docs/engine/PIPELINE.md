@@ -21,7 +21,13 @@ select safe baseline
 identify invocation
     |
     v
-recognize matching profiles
+recognize invocation identity
+    |
+    v
+identity-match profiles
+    |
+    v
+apply optional shape guards only to identity matches
     |
     +-- none -------------> passthrough
     |
@@ -68,7 +74,17 @@ The baseline selection point is explicit in the engine so WP2 can refine it with
 
 ## Routing
 
-The engine calls every registered profile's `recognize` method against one immutable `RouteContext`.
+The engine first calls every registered profile's `recognize` method with **InvocationIdentity only**.
+
+Only profiles that match identity are allowed to inspect the observation through an optional `shape_guard`.
+
+This makes the routing order structural:
+
+~~~text
+known identity -> optional output-shape guard
+~~~
+
+An output shape cannot create a match when identity recognition returned `NoMatch`.
 
 There are no confidence scores or priorities.
 
@@ -129,6 +145,7 @@ Current structured diagnostics include:
 - `input_too_large`
 - `incomplete_input`
 - `unknown_termination`
+- `termination_not_exited`
 
 ## Size guard
 
