@@ -131,11 +131,7 @@ fn engine_composes_sgr_then_redraw() {
     let input =
         "\u{1b}[31m9%\u{1b}[0m\r\u{1b}[33m10%\u{1b}[0m\r\u{1b}[32m100%\u{1b}[0m\n";
     let result = Engine::default()
-        .process(observation(
-            PresentationV1::TerminalRendered,
-            None,
-            input,
-        ))
+        .process(observation(PresentationV1::TerminalRendered, None, input))
         .unwrap();
 
     assert_eq!(result.decision, DecisionV1::Normalized);
