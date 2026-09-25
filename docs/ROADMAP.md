@@ -85,6 +85,21 @@ Requires benchmarks, platform artifacts, compatibility statement, provenance/not
 
 # 4. E0 - Evidence & Baseline
 
+## E0 execution status
+
+**COMPLETE — G-E0 Evidence Ready: PASS**
+
+Evidence:
+
+- `docs/reviews/HL-E0-REVIEW-01.md`
+- `docs/evidence/E0_DONOR_REGISTER.md`
+- `docs/evidence/E0_OVERLAP_REVIEW.md`
+- `docs/verification/FIXTURE_SCHEMA.md`
+- WP0 #7 complete
+- WP7 seed #49 complete
+
+WP7 #14 remains open as the continuous verification lane.
+
 ## Mission
 
 Do not rebuild years of edge-case knowledge blindly.
@@ -553,4 +568,4 @@ Project state:
 Roadmapped
 ~~~
 
-Execution tree is fully decomposed. The first executable lane is E0: WP0 #7 and the WP7 corpus seed #14.
+Execution tree is fully decomposed. E0 has passed G-E0. The next executable lane is E1 Core Engine: WP1 #8 / #21-#25, followed by WP2 #9 / #26-#28.
