@@ -98,7 +98,7 @@ fn duplicate_profile_ids_are_rejected_before_execution() {
         Box::new(FrameworkProfile::native("same", "one", "one")),
         Box::new(FrameworkProfile::native("same", "two", "two")),
     ])
-    .unwrap_err();
+    .err().expect("expected admission failure");
 
     assert_eq!(
         error,
@@ -114,7 +114,7 @@ fn rewrite_dependent_profile_is_rejected_at_registry_admission() {
         "go-test",
         BoundaryAssumption::RewriteDependent,
     ))])
-    .unwrap_err();
+    .err().expect("expected admission failure");
 
     assert_eq!(
         error,
@@ -129,7 +129,7 @@ fn invalid_descriptor_components_are_rejected() {
         "rust",
         "rust-cargo",
     ))])
-    .unwrap_err();
+    .err().expect("expected admission failure");
     assert_eq!(
         invalid_id,
         ProfileRegistryError::InvalidProfileId { id: "Cargo Test" }
@@ -140,7 +140,7 @@ fn invalid_descriptor_components_are_rejected() {
         "Rust/Cargo",
         "rust-cargo",
     ))])
-    .unwrap_err();
+    .err().expect("expected admission failure");
     assert_eq!(
         invalid_family,
         ProfileRegistryError::InvalidFamily {
@@ -154,7 +154,7 @@ fn invalid_descriptor_components_are_rejected() {
         "rust",
         "../cargo",
     ))])
-    .unwrap_err();
+    .err().expect("expected admission failure");
     assert_eq!(
         invalid_fixture,
         ProfileRegistryError::InvalidFixtureFamily {
@@ -175,7 +175,7 @@ fn engine_build_propagates_registry_admission_failure() {
             BoundaryAssumption::RewriteDependent,
         ))],
     )
-    .unwrap_err();
+    .err().expect("expected admission failure");
 
     assert_eq!(
         error,
