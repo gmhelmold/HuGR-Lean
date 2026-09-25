@@ -15,7 +15,12 @@ validate protocol observation
 active input size guard
     |
     v
-select safe baseline
+SafeNormalization
+    |
+    +-- error ------------> failed_open(safe_normalization_failed)
+    |
+    v
+select validated safe baseline
     |
     v
 identify invocation
@@ -67,15 +72,22 @@ non-expansion guard
 reduced result + exact byte metrics
 ~~~
 
-## Current safe baseline
+## Safe baseline
 
-Until WP2 implements SafeNormalization, the engine deliberately defines:
+The engine now runs SafeNormalization before invocation/profile routing.
 
 ~~~text
-safe_baseline = ObservationV1.output
+presentation != TerminalRendered
+  -> safe_baseline = original boundary output
+
+presentation == TerminalRendered
+  -> SGR stripping
+  -> proven carriage-redraw collapse
+  -> non-expansion + idempotence self-check
+  -> safe_baseline
 ~~~
 
-The baseline selection point is explicit in the engine so WP2 can refine it without changing profile routing or fail-open semantics.
+A changed baseline is model-visible as `decision = normalized` when no profile produces a strictly smaller valid result.
 
 ## Routing
 
@@ -90,6 +102,8 @@ known identity -> optional output-shape guard
 ~~~
 
 An output shape cannot create a match when identity recognition returned `NoMatch`.
+
+When identity has matched, the shape guard sees both the original observation and the validated `safe_baseline`; profiles should use the baseline for shape decisions affected by terminal presentation noise.
 
 There are no confidence scores or priorities.
 
@@ -151,6 +165,7 @@ Current structured diagnostics include:
 - `incomplete_input`
 - `unknown_termination`
 - `termination_not_exited`
+- `safe_normalization_failed`
 
 ## Size guard
 
@@ -199,7 +214,7 @@ No token estimator is involved.
 The current core does not implement:
 
 - real production profiles;
-- SafeNormalization;
+
 - raw storage;
 - host adapters;
 - command rewriting;
