@@ -720,6 +720,31 @@ mod tests {
     }
 
     #[test]
+    fn common_writer_line_patterns_preserve_provenance_tracking() {
+        let input = "ERROR";
+        let signal =
+            Signal::verbatim(FAILURE_ID, input, ByteSpan::new(0, input.len())).unwrap();
+        let derived = DerivedEvidence::count(
+            "count_errors",
+            input,
+            vec![ByteSpan::new(0, input.len())],
+            "errors",
+        )
+        .unwrap();
+
+        let mut writer = LeanWriter::new();
+        writer.static_line("summary:");
+        writer.signal_line(&signal);
+        writer.derived_line(&derived);
+        let output = writer.finish();
+
+        assert_eq!(output.text(), "summary:\nERROR\n1 errors\n");
+        assert!(output.emitted_signal_ids().contains(&FAILURE_ID));
+        assert_eq!(output.derived_records().len(), 1);
+        assert_eq!(output.derived_records()[0].rule_id(), "count_errors");
+    }
+
+    #[test]
     fn preservation_contract_requires_actual_emission() {
         let contract = PreservationContract::require(FAILURE_ID);
 
