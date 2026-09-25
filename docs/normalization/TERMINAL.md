@@ -121,15 +121,37 @@ WP2.1 does not:
 - interpret progress semantically;
 - infer TerminalRendered from shell/tool identity.
 
-## Engine integration
+## Composition and engine integration
 
-WP2.1 defines primitives and the applicability capability.
+WP2.3 composes the admitted primitives in this fixed order:
 
-It does **not** yet compose the primitives into the engine's safe baseline.
+~~~text
+boundary output
+  -> strip recognized SGR
+  -> collapse proven monotonic ASCII redraws
+  -> runtime non-expansion/idempotence validation
+  -> safe baseline
+~~~
 
-That work belongs to:
+The order is intentional: styling bytes may appear inside progress frames, and removing proven SGR first exposes the visible ASCII frame widths used by the redraw proof.
 
-- #27 — expanded adversarial negative fixture corpus;
-- #28 — composition, fallback semantics, and engine integration.
+`safe_normalize(&ObservationV1)` returns:
 
-Until #28 completes, `Engine::process` continues to use the original boundary output as its safe baseline.
+~~~text
+NotApplicable  presentation provenance is insufficient
+Unchanged      applicable, but bytes are identical
+Changed(text)  validated smaller safe baseline
+~~~
+
+Unexpected expansion or non-idempotence is an error.
+
+The engine semantics are:
+
+- no profile + changed baseline -> `normalized`;
+- no profile + unchanged/not-applicable -> `passthrough`;
+- successful profile smaller than baseline -> `reduced`;
+- profile candidate equal/larger than baseline -> baseline wins;
+- if that baseline differs from original -> `normalized`;
+- any SafeNormalization/profile/preservation failure -> `failed_open` with no replacement, so the adapter-owned original remains authoritative.
+
+Shape guards and profile analysis receive the validated safe baseline.
