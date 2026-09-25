@@ -182,8 +182,23 @@ pub enum ProfileRegistryError {
     },
 }
 
+pub struct RegisteredProfile {
+    descriptor: ProfileDescriptor,
+    profile: Box<dyn Profile>,
+}
+
+impl RegisteredProfile {
+    pub const fn descriptor(&self) -> ProfileDescriptor {
+        self.descriptor
+    }
+
+    pub fn profile(&self) -> &dyn Profile {
+        self.profile.as_ref()
+    }
+}
+
 pub struct ProfileRegistry {
-    profiles: Vec<Box<dyn Profile>>,
+    profiles: Vec<RegisteredProfile>,
 }
 
 impl Default for ProfileRegistry {
@@ -201,8 +216,9 @@ impl ProfileRegistry {
 
     pub fn new(profiles: Vec<Box<dyn Profile>>) -> Result<Self, ProfileRegistryError> {
         let mut ids = BTreeSet::new();
+        let mut registered = Vec::with_capacity(profiles.len());
 
-        for profile in &profiles {
+        for profile in profiles {
             let descriptor = profile.descriptor();
             descriptor.validate()?;
 
@@ -211,13 +227,20 @@ impl ProfileRegistry {
                     id: descriptor.id(),
                 });
             }
+
+            registered.push(RegisteredProfile {
+                descriptor,
+                profile,
+            });
         }
 
-        Ok(Self { profiles })
+        Ok(Self {
+            profiles: registered,
+        })
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &dyn Profile> {
-        self.profiles.iter().map(Box::as_ref)
+    pub fn iter(&self) -> impl Iterator<Item = &RegisteredProfile> {
+        self.profiles.iter()
     }
 
     pub fn len(&self) -> usize {
@@ -307,10 +330,6 @@ impl ProfileError {
 
 pub trait Profile: Send + Sync {
     fn descriptor(&self) -> ProfileDescriptor;
-
-    fn id(&self) -> &'static str {
-        self.descriptor().id()
-    }
 
     fn requirements(&self) -> ProfileRequirements {
         ProfileRequirements::ANY
