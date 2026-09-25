@@ -26,7 +26,7 @@ Supported constructors are intentionally narrow:
 - `Signal::verbatim(...)` — exact validated UTF-8 input span.
 - `Signal::canonicalized(...)` — validated span transformed by a closed named rule.
 - `Signal::from_outcome(...)` — explicit observation state such as exit/termination/completeness.
-- `Signal::derived_count(...)` — mechanically calculated count from validated source spans.
+- `Signal::derived_count(...)` — mechanically calculated count from validated, source-ordered, non-overlapping spans.
 
 Canonicalization currently exposes only the closed `trim_ascii_whitespace` rule. Empty canonical evidence is rejected.
 
@@ -99,7 +99,7 @@ result
 
 ## Derived evidence vs critical signals
 
-Derived evidence may be display-only. If a derived claim is critical, it must be created as a derived `Signal` and its ID must be required by the Preservation Contract.
+Derived evidence may be display-only. Count derivations reject duplicate, overlapping, or out-of-order spans so one piece of evidence cannot be counted multiple times. If a derived claim is critical, it must be created as a derived `Signal` and its ID must be required by the Preservation Contract.
 
 ## Deliberate non-designs
 
