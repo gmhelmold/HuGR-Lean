@@ -1,6 +1,8 @@
 use hugr_lean::command::{CommandRecognition, InvocationIdentity};
 use hugr_lean::engine::{Engine, EngineConfig};
-use hugr_lean::preservation::{LeanWriter, PreservationContract, RenderedOutput};
+use hugr_lean::preservation::{
+    ByteSpan, LeanWriter, PreservationContract, RenderedOutput, Signal, SignalId,
+};
 use hugr_lean::profile::{
     AnalysisBundle, Profile, ProfileAnalysis, ProfileContext, ProfileError, ProfileMatch,
     RouteContext,
@@ -174,6 +176,85 @@ fn shape_guard_receives_normalized_safe_baseline() {
     assert_eq!(result.decision, DecisionV1::Reduced);
     assert_eq!(result.replacement.as_deref(), Some("ok"));
     assert_eq!(result.profile.as_deref(), Some("baseline-profile"));
+}
+
+const NORMALIZED_SIGNAL_ID: SignalId = SignalId::new("normalized-error");
+
+struct NormalizedEvidenceAnalysis {
+    signal: Signal,
+}
+
+struct NormalizedEvidenceProfile;
+
+impl Profile for NormalizedEvidenceProfile {
+    fn id(&self) -> &'static str {
+        "normalized-evidence"
+    }
+
+    fn recognize(&self, identity: &InvocationIdentity) -> ProfileMatch {
+        match identity {
+            InvocationIdentity::Shell(CommandRecognition::Direct(command))
+                if command.program == "cargo" =>
+            {
+                ProfileMatch::Match
+            }
+            _ => ProfileMatch::NoMatch,
+        }
+    }
+
+    fn analyze(&self, context: &ProfileContext<'_>) -> Result<AnalysisBundle, ProfileError> {
+        let needle = "ERROR";
+        let start = context
+            .safe_baseline
+            .find(needle)
+            .ok_or_else(ProfileError::analyze)?;
+        let signal = context
+            .verbatim_signal(
+                NORMALIZED_SIGNAL_ID,
+                ByteSpan::new(start, start + needle.len()),
+            )
+            .map_err(|_| ProfileError::analyze())?;
+
+        Ok(AnalysisBundle::new(
+            Box::new(NormalizedEvidenceAnalysis { signal }),
+            PreservationContract::require(NORMALIZED_SIGNAL_ID),
+        ))
+    }
+
+    fn render(
+        &self,
+        analysis: &dyn ProfileAnalysis,
+        writer: &mut LeanWriter,
+    ) -> Result<(), ProfileError> {
+        let analysis = analysis
+            .as_any()
+            .downcast_ref::<NormalizedEvidenceAnalysis>()
+            .ok_or_else(ProfileError::render)?;
+        writer.signal(&analysis.signal);
+        Ok(())
+    }
+}
+
+#[test]
+fn preservation_evidence_spans_bind_to_normalized_safe_baseline() {
+    let engine = Engine::new(
+        EngineConfig::default(),
+        vec![Box::new(NormalizedEvidenceProfile)],
+    )
+    .unwrap();
+
+    let original = "\u{1b}[31mERROR\u{1b}[0m noisy tail";
+    let result = engine
+        .process(observation(
+            PresentationV1::TerminalRendered,
+            Some("cargo test"),
+            original,
+        ))
+        .unwrap();
+
+    assert_eq!(result.decision, DecisionV1::Reduced);
+    assert_eq!(result.replacement.as_deref(), Some("ERROR"));
+    assert_eq!(result.profile.as_deref(), Some("normalized-evidence"));
 }
 
 #[test]
