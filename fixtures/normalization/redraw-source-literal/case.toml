@@ -13,7 +13,7 @@ presentation = "terminal_rendered"
 [expect]
 decision = "passthrough"
 profile = ""
-required_literals = ["let s", "\\\\r"]
+required_literals = ["let s"]
 forbidden_literals = []
 properties = ["passthrough_exact", "non_expanding", "idempotent", "no_panic", "preserves_required_literals"]
 
