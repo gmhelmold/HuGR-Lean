@@ -150,6 +150,22 @@ No production reducer framework, host integration or wholesale donor port.
 
 # 5. E1 - Core Engine
 
+## E1 execution status
+
+**COMPLETE — G-E1 Core Correctness: PASS**
+
+Evidence:
+
+- `docs/reviews/HL-WP1-REVIEW-01.md`
+- `docs/reviews/HL-WP2-REVIEW-01.md`
+- `docs/reviews/HL-E1-REVIEW-01.md`
+- WP1 #8 complete
+- WP2 #9 complete
+- latest gate-aligned main CI: `36184227395` — PASS
+- 107 regular tests + 2 compile-fail doctests, zero failures
+
+E2 Profile System & Coverage is now the active execution lane.
+
 ## Mission
 
 Build the smallest implementation that enforces HL-SPEC-001.
@@ -568,4 +584,4 @@ Project state:
 Roadmapped
 ~~~
 
-Execution tree is fully decomposed. E0 has passed G-E0. The next executable lane is E1 Core Engine: WP1 #8 / #21-#25, followed by WP2 #9 / #26-#28.
+Execution tree is fully decomposed. E0 and E1 have passed their gates. The active execution lane is E2 Profile System & Coverage: WP3 #10 / #29-#37, with WP7 #14 continuing as the verification corpus lane.
