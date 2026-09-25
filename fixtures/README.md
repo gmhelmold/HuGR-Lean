@@ -28,3 +28,12 @@ These are synthetic contract fixtures, not claims about an implemented engine ye
 - `proving/engine-path` — test-only artificial command/profile used to exercise the complete real engine path: identity routing, shape guard, requirements, analysis, context-bound Signal creation, Preservation Contract, LeanWriter rendering, profile validation, non-expansion, and metrics.
 
 The proving profile is test support only and is not registered by the production default engine.
+
+
+## WP2 normalization corpus
+
+`fixtures/normalization/` contains executable positive and adversarial negative cases for the terminal SafeNormalization primitives.
+
+See [docs/verification/NORMALIZATION_CORPUS.md](../docs/verification/NORMALIZATION_CORPUS.md).
+
+Negative cases require exact passthrough; #28 owns primitive composition and engine integration.
