@@ -216,7 +216,6 @@ primitive = "strip_sgr"
     assert!(support::fixture::validate_fixture_case(&case).is_err());
 }
 
-
 #[test]
 fn all_normalization_corpus_cases_execute() {
     let fixtures = normalization_fixtures();
@@ -253,15 +252,13 @@ fn every_normalization_primitive_has_positive_and_negative_fixture_evidence() {
             .collect();
 
         assert!(
-            matching
-                .iter()
-                .any(|fixture| fixture.case.expect.decision == hugr_lean::protocol::DecisionV1::Normalized),
+            matching.iter().any(|fixture| fixture.case.expect.decision
+                == hugr_lean::protocol::DecisionV1::Normalized),
             "{primitive:?} has no positive normalized fixture"
         );
         assert!(
-            matching
-                .iter()
-                .any(|fixture| fixture.case.expect.decision == hugr_lean::protocol::DecisionV1::Passthrough),
+            matching.iter().any(|fixture| fixture.case.expect.decision
+                == hugr_lean::protocol::DecisionV1::Passthrough),
             "{primitive:?} has no negative passthrough fixture"
         );
     }
