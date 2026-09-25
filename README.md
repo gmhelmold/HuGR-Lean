@@ -34,12 +34,13 @@ HuGR-Lean is not a memory system, RAG layer, vector database, semantic compresso
 
 ## Status
 
-Project plan and Technical Specification are approved. The epic roadmap is now established; next comes Work Package issue/sub-issue decomposition.
+Project plan, Technical Specification, roadmap, and issue decomposition are established. **E0 Evidence & Baseline has passed G-E0.** The next execution lane is E1 Core Engine.
 
 - [Formal Project Plan](docs/PROJECT_PLAN.md)
 - [Approved Technical Specification](docs/TECHNICAL_SPEC.md)
 - [Epic Roadmap / Execution Plan](docs/ROADMAP.md)
 - [Technical Specification review](docs/reviews/HL-SPEC-001-REVIEW-01.md)
+- [E0 cold review / gate evidence](docs/reviews/HL-E0-REVIEW-01.md)
 
 ### Epic tracking issues
 
