@@ -72,7 +72,10 @@ pub fn exact_line_spans(input: &str, value: &str) -> Result<Vec<ByteSpan>, Primi
 }
 
 fn line_content_len(chunk: &str) -> usize {
-    let without_lf = chunk.strip_suffix('\n').unwrap_or(chunk);
+    let Some(without_lf) = chunk.strip_suffix('\n') else {
+        return chunk.len();
+    };
+
     without_lf
         .strip_suffix('\r')
         .map_or(without_lf.len(), str::len)
