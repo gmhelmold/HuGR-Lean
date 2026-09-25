@@ -104,9 +104,9 @@ impl Engine {
                     | crate::protocol::TerminationKindV1::TimedOut => {
                         DiagnosticCodeV1::TerminationNotExited
                     }
-                    crate::protocol::TerminationKindV1::Exited => unreachable!(
-                        "exited termination satisfies the exited profile requirement"
-                    ),
+                    crate::protocol::TerminationKindV1::Exited => {
+                        unreachable!("exited termination satisfies the exited profile requirement")
+                    }
                 },
             };
             return checked(failed_open(observation.output.len(), Some(diagnostic)));
