@@ -70,6 +70,7 @@ pub enum RequirementFailure {
 pub struct RouteContext<'a> {
     pub observation: &'a ObservationV1,
     pub identity: &'a InvocationIdentity,
+    pub safe_baseline: &'a str,
 }
 
 pub struct ProfileContext<'a> {
