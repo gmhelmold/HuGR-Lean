@@ -132,13 +132,7 @@ mod tests {
     #[test]
     fn empty_matching_terms_are_rejected() {
         assert_eq!(exact_spans("x", ""), Err(PrimitiveError::EmptyNeedle));
-        assert_eq!(
-            line_prefix_spans("x", ""),
-            Err(PrimitiveError::EmptyPrefix)
-        );
-        assert_eq!(
-            exact_line_spans("x", ""),
-            Err(PrimitiveError::EmptyNeedle)
-        );
+        assert_eq!(line_prefix_spans("x", ""), Err(PrimitiveError::EmptyPrefix));
+        assert_eq!(exact_line_spans("x", ""), Err(PrimitiveError::EmptyNeedle));
     }
 }
