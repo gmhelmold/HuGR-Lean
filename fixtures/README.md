@@ -21,3 +21,10 @@ The initial seed cases establish conservative defaults before reducers exist:
 - `seed/incomplete-test-like` — truncated/partial test-looking output cannot support complete aggregate claims.
 
 These are synthetic contract fixtures, not claims about an implemented engine yet.
+
+
+## WP1 proving fixture
+
+- `proving/engine-path` — test-only artificial command/profile used to exercise the complete real engine path: identity routing, shape guard, requirements, analysis, context-bound Signal creation, Preservation Contract, LeanWriter rendering, profile validation, non-expansion, and metrics.
+
+The proving profile is test support only and is not registered by the production default engine.
