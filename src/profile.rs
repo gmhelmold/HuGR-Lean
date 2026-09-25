@@ -121,9 +121,8 @@ impl ProfileDescriptor {
     }
 
     fn validate(self) -> Result<(), ProfileRegistryError> {
-        validate_component(self.id).map_err(|_| ProfileRegistryError::InvalidProfileId {
-            id: self.id,
-        })?;
+        validate_component(self.id)
+            .map_err(|_| ProfileRegistryError::InvalidProfileId { id: self.id })?;
         validate_component(self.family).map_err(|_| ProfileRegistryError::InvalidFamily {
             id: self.id,
             family: self.family,
@@ -154,9 +153,7 @@ fn validate_component(value: &str) -> Result<(), ()> {
     }
 
     if bytes.all(|byte| {
-        byte.is_ascii_lowercase()
-            || byte.is_ascii_digit()
-            || matches!(byte, b'-' | b'_' | b'.')
+        byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_' | b'.')
     }) {
         Ok(())
     } else {
