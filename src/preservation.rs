@@ -383,9 +383,19 @@ impl LeanWriter {
         self.text.push_str(text);
     }
 
+    pub fn static_line(&mut self, text: &'static str) {
+        self.static_text(text);
+        self.newline();
+    }
+
     pub fn signal(&mut self, signal: &Signal) {
         self.text.push_str(signal.canonical_text());
         self.emitted_signal_ids.insert(signal.id());
+    }
+
+    pub fn signal_line(&mut self, signal: &Signal) {
+        self.signal(signal);
+        self.newline();
     }
 
     pub fn derived(&mut self, evidence: &DerivedEvidence) {
