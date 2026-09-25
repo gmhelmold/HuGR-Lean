@@ -205,10 +205,7 @@ mod tests {
             collapse_monotonic_ascii_redraws("|\r/\r-\rDone\n"),
             "Done\n"
         );
-        assert_eq!(
-            collapse_monotonic_ascii_redraws("abc\rdef\rghi"),
-            "ghi"
-        );
+        assert_eq!(collapse_monotonic_ascii_redraws("abc\rdef\rghi"), "ghi");
     }
 
     #[test]
