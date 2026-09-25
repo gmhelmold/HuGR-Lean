@@ -51,8 +51,8 @@ impl Profile for TestProfile {
         self.requirements
     }
 
-    fn recognize(&self, context: &RouteContext<'_>) -> ProfileMatch {
-        match context.identity {
+    fn recognize(&self, identity: &InvocationIdentity) -> ProfileMatch {
+        match identity {
             InvocationIdentity::Shell(CommandRecognition::Direct(identity))
                 if identity.program == self.program =>
             {
@@ -208,6 +208,88 @@ fn exited_requirement_fails_open_when_termination_is_unknown() {
         result.diagnostics,
         vec![DiagnosticCodeV1::UnknownTermination]
     );
+}
+
+
+#[test]
+fn exited_requirement_distinguishes_known_non_exit_termination() {
+    let mut profile = TestProfile::reducing("cargo", "cargo", "ok");
+    profile.requirements = ProfileRequirements {
+        completeness: CompletenessRequirement::Any,
+        termination: TerminationRequirement::Exited,
+    };
+
+    let mut observation = shell_observation("timed out output");
+    observation.termination = hugr_lean::protocol::TerminationV1 {
+        kind: hugr_lean::protocol::TerminationKindV1::TimedOut,
+        code: None,
+    };
+
+    let result = engine(vec![Box::new(profile)])
+        .process(observation)
+        .unwrap();
+
+    assert_eq!(result.decision, DecisionV1::FailedOpen);
+    assert_eq!(
+        result.diagnostics,
+        vec![DiagnosticCodeV1::TerminationNotExited]
+    );
+}
+
+struct ShapeOnlyProfile;
+
+impl Profile for ShapeOnlyProfile {
+    fn id(&self) -> &'static str {
+        "shape-only"
+    }
+
+    fn recognize(&self, _identity: &InvocationIdentity) -> ProfileMatch {
+        ProfileMatch::NoMatch
+    }
+
+    fn shape_guard(&self, context: &RouteContext<'_>) -> ProfileMatch {
+        if context.observation.output.contains("MAGIC") {
+            ProfileMatch::Match
+        } else {
+            ProfileMatch::NoMatch
+        }
+    }
+
+    fn analyze(
+        &self,
+        _context: &ProfileContext<'_>,
+    ) -> Result<Box<dyn ProfileAnalysis>, ProfileError> {
+        Ok(Box::new(TestAnalysis {
+            rendered: "x".to_owned(),
+            valid: true,
+        }))
+    }
+
+    fn render(&self, analysis: &dyn ProfileAnalysis) -> Result<String, ProfileError> {
+        let analysis = analysis
+            .as_any()
+            .downcast_ref::<TestAnalysis>()
+            .ok_or_else(ProfileError::render)?;
+        Ok(analysis.rendered.clone())
+    }
+
+    fn validate(
+        &self,
+        _analysis: &dyn ProfileAnalysis,
+        _rendered: &str,
+    ) -> Result<(), ProfileError> {
+        Ok(())
+    }
+}
+
+#[test]
+fn shape_guard_cannot_create_identity_match_on_its_own() {
+    let result = engine(vec![Box::new(ShapeOnlyProfile)])
+        .process(shell_observation("MAGIC output"))
+        .unwrap();
+
+    assert_eq!(result.decision, DecisionV1::Passthrough);
+    assert_eq!(result.replacement, None);
 }
 
 #[test]
