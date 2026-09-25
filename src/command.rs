@@ -41,10 +41,7 @@ pub fn identify_invocation(observation: &ObservationV1) -> InvocationIdentity {
     InvocationIdentity::Shell(recognition)
 }
 
-pub fn recognize_shell_command(
-    command: &str,
-    dialect: ShellDialectV1,
-) -> CommandRecognition {
+pub fn recognize_shell_command(command: &str, dialect: ShellDialectV1) -> CommandRecognition {
     if command.is_empty() || command.contains('\n') || command.contains('\r') {
         return CommandRecognition::ComplexOrUnknown;
     }
@@ -134,10 +131,7 @@ fn is_portable_bare_token(token: &str) -> bool {
     !token.is_empty()
         && token.chars().all(|ch| {
             ch.is_ascii_alphanumeric()
-                || matches!(
-                    ch,
-                    '_' | '-' | '.' | '/' | ':' | '=' | '@' | '+' | ','
-                )
+                || matches!(ch, '_' | '-' | '.' | '/' | ':' | '=' | '@' | '+' | ',')
         })
 }
 
@@ -169,10 +163,7 @@ mod tests {
     fn lexical_program_name_does_not_touch_filesystem() {
         assert_eq!(lexical_program_name("git"), "git");
         assert_eq!(lexical_program_name("/usr/bin/git"), "git");
-        assert_eq!(
-            lexical_program_name("./node_modules/.bin/eslint"),
-            "eslint"
-        );
+        assert_eq!(lexical_program_name("./node_modules/.bin/eslint"), "eslint");
         assert_eq!(lexical_program_name("C:\\tools\\cargo.exe"), "cargo.exe");
     }
 }
