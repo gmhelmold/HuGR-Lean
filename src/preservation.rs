@@ -6,9 +6,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::protocol::{
-    CompletenessV1, ObservationV1, TerminationKindV1,
-};
+use crate::protocol::{CompletenessV1, ObservationV1, TerminationKindV1};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct SignalId(&'static str);
@@ -77,7 +75,9 @@ impl CanonicalizationRule {
 
     fn apply(self, value: &str) -> String {
         match self {
-            Self::TrimAsciiWhitespace => value.trim_matches(|c: char| c.is_ascii_whitespace()).to_owned(),
+            Self::TrimAsciiWhitespace => value
+                .trim_matches(|c: char| c.is_ascii_whitespace())
+                .to_owned(),
         }
     }
 }
@@ -104,11 +104,7 @@ pub struct Signal {
 }
 
 impl Signal {
-    pub fn verbatim(
-        id: SignalId,
-        input: &str,
-        span: ByteSpan,
-    ) -> Result<Self, EvidenceError> {
+    pub fn verbatim(id: SignalId, input: &str, span: ByteSpan) -> Result<Self, EvidenceError> {
         let text = span.extract(input)?.to_owned();
         Ok(Self {
             id,
