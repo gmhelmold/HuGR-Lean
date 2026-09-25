@@ -1,9 +1,15 @@
 use hugr_lean::command::{CommandRecognition, InvocationIdentity};
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use hugr_lean::engine::{Engine, EngineBuildError, EngineConfig};
 use hugr_lean::preservation::{LeanWriter, PreservationContract};
 use hugr_lean::profile::{
     AnalysisBundle, BoundaryAssumption, Profile, ProfileAnalysis, ProfileContext,
     ProfileDescriptor, ProfileError, ProfileMatch, ProfileRegistry, ProfileRegistryError,
+}; 
+use hugr_lean::protocol::{
+    CompletenessV1, DecisionV1, ObservationV1, PresentationV1, ShellDialectV1, SourceV1,
+    TerminationV1, PROTOCOL_V1,
 };
 
 struct FrameworkProfile {
@@ -190,11 +196,10 @@ fn engine_build_propagates_registry_admission_failure() {
 }
 
 #[test]
-fn descriptor_is_the_single_source_of_profile_identity() {
+fn descriptor_exposes_stable_admission_metadata() {
     let profile = FrameworkProfile::native("cargo-test", "rust", "rust-cargo");
     let descriptor = profile.descriptor();
 
-    assert_eq!(profile.id(), "cargo-test");
     assert_eq!(descriptor.id(), "cargo-test");
     assert_eq!(descriptor.family(), "rust");
     assert_eq!(descriptor.fixture_family(), "rust-cargo");
@@ -202,4 +207,82 @@ fn descriptor_is_the_single_source_of_profile_identity() {
         descriptor.boundary_assumption(),
         BoundaryAssumption::NativeText
     );
+}
+
+struct MutatingDescriptorProfile {
+    calls: AtomicUsize,
+}
+
+impl Profile for MutatingDescriptorProfile {
+    fn descriptor(&self) -> ProfileDescriptor {
+        if self.calls.fetch_add(1, Ordering::SeqCst) == 0 {
+            ProfileDescriptor::new(
+                "stable-profile",
+                "test",
+                "profile-framework",
+                BoundaryAssumption::NativeText,
+            )
+        } else {
+            ProfileDescriptor::new(
+                "changed-after-admission",
+                "test",
+                "profile-framework",
+                BoundaryAssumption::RewriteDependent,
+            )
+        }
+    }
+
+    fn recognize(&self, identity: &InvocationIdentity) -> ProfileMatch {
+        match identity {
+            InvocationIdentity::Shell(CommandRecognition::Direct(command))
+                if command.program == "stable-profile" =>
+            {
+                ProfileMatch::Match
+            }
+            _ => ProfileMatch::NoMatch,
+        }
+    }
+
+    fn analyze(&self, _context: &ProfileContext<'_>) -> Result<AnalysisBundle, ProfileError> {
+        Ok(AnalysisBundle::new(
+            Box::new(()),
+            PreservationContract::default(),
+        ))
+    }
+
+    fn render(
+        &self,
+        _analysis: &dyn ProfileAnalysis,
+        writer: &mut LeanWriter,
+    ) -> Result<(), ProfileError> {
+        writer.static_text("ok");
+        Ok(())
+    }
+}
+
+#[test]
+fn engine_uses_registry_snapshot_not_mutating_descriptor_rechecks() {
+    let engine = Engine::new(
+        EngineConfig::default(),
+        vec![Box::new(MutatingDescriptorProfile {
+            calls: AtomicUsize::new(0),
+        })],
+    )
+    .unwrap();
+
+    let observation = ObservationV1 {
+        schema_version: PROTOCOL_V1,
+        source: SourceV1::Shell,
+        command: Some("stable-profile".to_owned()),
+        shell_dialect: ShellDialectV1::Unknown,
+        output: "very noisy output".to_owned(),
+        termination: TerminationV1::exited(0),
+        completeness: CompletenessV1::Complete,
+        presentation: PresentationV1::Unknown,
+    };
+
+    let result = engine.process(observation).unwrap();
+    assert_eq!(result.decision, DecisionV1::Reduced);
+    assert_eq!(result.profile.as_deref(), Some("stable-profile"));
+    assert_eq!(result.replacement.as_deref(), Some("ok"));
 }
