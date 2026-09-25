@@ -1,0 +1,3 @@
+FAILED tests/test_auth.py::test_refresh
+E   AssertionError: token expired
+... output truncated ...
