@@ -6,7 +6,10 @@
 use std::any::Any;
 
 use crate::command::InvocationIdentity;
-use crate::preservation::{LeanWriter, PreservationContract, RenderedOutput};
+use crate::preservation::{
+    ByteSpan, CanonicalizationRule, DerivedEvidence, EvidenceError, LeanWriter, OutcomeField,
+    PreservationContract, RenderedOutput, Signal, SignalId,
+};
 use crate::protocol::{CompletenessV1, ObservationV1, TerminationKindV1};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,6 +79,52 @@ pub struct ProfileContext<'a> {
     pub observation: &'a ObservationV1,
     pub identity: &'a InvocationIdentity,
     pub safe_baseline: &'a str,
+}
+
+impl ProfileContext<'_> {
+    pub fn verbatim_signal(
+        &self,
+        id: SignalId,
+        span: ByteSpan,
+    ) -> Result<Signal, EvidenceError> {
+        Signal::verbatim(id, self.safe_baseline, span)
+    }
+
+    pub fn canonicalized_signal(
+        &self,
+        id: SignalId,
+        span: ByteSpan,
+        rule: CanonicalizationRule,
+    ) -> Result<Signal, EvidenceError> {
+        Signal::canonicalized(id, self.safe_baseline, span, rule)
+    }
+
+    pub fn outcome_signal(
+        &self,
+        id: SignalId,
+        field: OutcomeField,
+    ) -> Result<Signal, EvidenceError> {
+        Signal::from_outcome(id, field, self.observation)
+    }
+
+    pub fn derived_count_signal(
+        &self,
+        id: SignalId,
+        rule_id: &'static str,
+        source_spans: Vec<ByteSpan>,
+        noun: &'static str,
+    ) -> Result<Signal, EvidenceError> {
+        Signal::derived_count(id, rule_id, self.safe_baseline, source_spans, noun)
+    }
+
+    pub fn derived_count(
+        &self,
+        rule_id: &'static str,
+        source_spans: Vec<ByteSpan>,
+        noun: &'static str,
+    ) -> Result<DerivedEvidence, EvidenceError> {
+        DerivedEvidence::count(rule_id, self.safe_baseline, source_spans, noun)
+    }
 }
 
 pub struct AnalysisBundle {
