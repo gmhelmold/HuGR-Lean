@@ -45,6 +45,8 @@ The corpus contains one positive case for each primitive so a false implementati
 | `sgr-osc-hyperlink` | OSC is not admitted SGR grammar |
 | `sgr-malformed-csi` | incomplete/malformed CSI must not be guessed |
 | `sgr-cursor-control` | erase-display CSI changes terminal state and is not admitted |
+| `sgr-private-csi` | private-mode CSI is outside the admitted SGR grammar |
+| `sgr-c1-csi` | 8-bit/C1-style control text is not silently treated as ESC SGR |
 | `sgr-whitespace-repetition` | blank lines, indentation, and repetition are not generic noise |
 
 ## Carriage-redraw negative classes
@@ -55,6 +57,8 @@ The corpus contains one positive case for each primitive so a false implementati
 | `redraw-shrinking` | shorter final frame may leave terminal columns behind |
 | `redraw-unicode` | display width is not proven by byte length |
 | `redraw-tab` | tab display width depends on terminal state |
+| `redraw-backspace-control` | backspace changes cursor state and invalidates the printable-ASCII proof |
+| `redraw-ansi-mixed` | isolated redraw primitive must not silently consume ANSI-bearing frames; composition belongs to #28 |
 | `redraw-trailing-cr` | no complete final replacement frame exists |
 | `redraw-crlf-plain` | ordinary CRLF is a line ending, not a redraw sequence |
 | `redraw-source-literal` | source text contains literal `\r` notation |
