@@ -5,7 +5,8 @@ use std::path::{Path, PathBuf};
 
 use hugr_lean::protocol::DecisionV1;
 use support::fixture::{
-    verify_normalization_fixture, FixtureKind, LoadedFixture, NormalizationPrimitive,
+    verify_normalization_fixture, FixtureKind, FixtureProperty, LoadedFixture,
+    NormalizationPrimitive,
 };
 
 fn fixture_root() -> PathBuf {
@@ -87,9 +88,7 @@ fn negative_normalization_fixtures_require_exact_passthrough_property() {
 
         let properties = &fixture.case.expect.properties;
         assert!(
-            properties
-                .iter()
-                .any(|property| format!("{property:?}") == "PassthroughExact"),
+            properties.contains(&FixtureProperty::PassthroughExact),
             "{} negative case does not require passthrough_exact",
             fixture.case.id
         );
