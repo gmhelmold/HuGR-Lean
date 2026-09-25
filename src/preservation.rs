@@ -722,8 +722,7 @@ mod tests {
     #[test]
     fn common_writer_line_patterns_preserve_provenance_tracking() {
         let input = "ERROR";
-        let signal =
-            Signal::verbatim(FAILURE_ID, input, ByteSpan::new(0, input.len())).unwrap();
+        let signal = Signal::verbatim(FAILURE_ID, input, ByteSpan::new(0, input.len())).unwrap();
         let derived = DerivedEvidence::count(
             "count_errors",
             input,
