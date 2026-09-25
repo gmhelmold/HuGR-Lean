@@ -42,11 +42,18 @@ pub fn identify_invocation(observation: &ObservationV1) -> InvocationIdentity {
 }
 
 pub fn recognize_shell_command(command: &str, dialect: ShellDialectV1) -> CommandRecognition {
-    if command.is_empty() || command.contains('\n') || command.contains('\r') {
+    if command.is_empty()
+        || command
+            .chars()
+            .any(|ch| ch.is_ascii_whitespace() && !matches!(ch, ' ' | '\t'))
+    {
         return CommandRecognition::ComplexOrUnknown;
     }
 
-    let tokens: Vec<&str> = command.split_ascii_whitespace().collect();
+    let tokens: Vec<&str> = command
+        .split([' ', '\t'])
+        .filter(|token| !token.is_empty())
+        .collect();
     if tokens.is_empty() {
         return CommandRecognition::ComplexOrUnknown;
     }
