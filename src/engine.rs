@@ -104,9 +104,7 @@ impl Engine {
         if let Err(failure) = profile.requirements().check(&observation) {
             let diagnostic = match failure {
                 RequirementFailure::IncompleteInput => DiagnosticCodeV1::IncompleteInput,
-                RequirementFailure::TerminationNotExited => {
-                    DiagnosticCodeV1::UnknownTermination
-                }
+                RequirementFailure::TerminationNotExited => DiagnosticCodeV1::UnknownTermination,
             };
             return Ok(failed_open(observation.output.len(), Some(diagnostic)));
         }
@@ -151,11 +149,7 @@ impl Engine {
             return Ok(FilterResultV1::passthrough(observation.output.len()));
         }
 
-        Ok(reduced(
-            observation.output.len(),
-            rendered,
-            profile.id(),
-        ))
+        Ok(reduced(observation.output.len(), rendered, profile.id()))
     }
 }
 
