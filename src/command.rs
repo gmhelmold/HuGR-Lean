@@ -137,7 +137,7 @@ fn is_portable_bare_token(token: &str) -> bool {
 
 fn lexical_program_name(executable: &str) -> &str {
     executable
-        .rsplit(|ch| ch == '/' || ch == '\\')
+        .rsplit(['/', '\\'])
         .find(|segment| !segment.is_empty())
         .unwrap_or("")
 }
