@@ -83,11 +83,7 @@ impl Profile for BaselineProfile {
     }
 }
 
-fn observation(
-    presentation: PresentationV1,
-    command: Option<&str>,
-    output: &str,
-) -> ObservationV1 {
+fn observation(presentation: PresentationV1, command: Option<&str>, output: &str) -> ObservationV1 {
     ObservationV1 {
         schema_version: PROTOCOL_V1,
         source: if command.is_some() {
@@ -108,11 +104,7 @@ fn observation(
 fn default_engine_emits_normalized_result_for_terminal_sgr() {
     let input = "\u{1b}[31mred\u{1b}[0m plain\n";
     let result = Engine::default()
-        .process(observation(
-            PresentationV1::TerminalRendered,
-            None,
-            input,
-        ))
+        .process(observation(PresentationV1::TerminalRendered, None, input))
         .unwrap();
 
     assert_eq!(result.decision, DecisionV1::Normalized);
