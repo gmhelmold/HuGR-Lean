@@ -20,5 +20,7 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Test
         run: cargo test --all-targets
+      - name: Temporary lockfile evidence
+        run: cat Cargo.lock
       - name: Clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
