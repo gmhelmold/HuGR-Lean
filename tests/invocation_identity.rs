@@ -215,6 +215,34 @@ fn empty_or_only_whitespace_command_is_unknown() {
 }
 
 #[test]
+fn rejects_non_ascii_and_control_bearing_tokens() {
+    let cases = [
+        "echo café",
+        "echo \u{0000}value",
+        "echo \u{001b}[31mred",
+        "echo value\u{007f}",
+        "cargo\u{00a0}test",
+    ];
+
+    for command in cases {
+        assert_complex(command, ShellDialectV1::Unknown);
+    }
+}
+
+#[test]
+fn recognition_is_deterministic() {
+    let command = "/usr/bin/cargo test foo::bar --features=a,b";
+    let first = recognize_shell_command(command, ShellDialectV1::Unknown);
+
+    for _ in 0..32 {
+        assert_eq!(
+            recognize_shell_command(command, ShellDialectV1::Unknown),
+            first
+        );
+    }
+}
+
+#[test]
 fn invalid_executable_tokens_are_not_identities() {
     assert_complex(".", ShellDialectV1::Unknown);
     assert_complex("..", ShellDialectV1::Unknown);
