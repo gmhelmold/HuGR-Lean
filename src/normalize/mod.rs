@@ -1,6 +1,6 @@
 //! Conservative terminal-only SafeNormalization primitives.
 //!
-//! Public access is applicability-gated by `PresentationV1::TerminalRendered`.
+//! Public access is applicability-gated by PresentationV1::TerminalRendered.
 //! The individual transformations intentionally recognize only narrow cases
 //! whose presentation semantics can be established mechanically.
 
@@ -17,7 +17,7 @@ impl<'a> TerminalSafeText<'a> {
 
     /// Remove only recognized SGR styling sequences:
     ///
-    /// `ESC [ [0-9;:]* m`
+    /// ESC [ [0-9;:]* m
     ///
     /// Other CSI/OSC/control sequences remain untouched.
     pub fn strip_sgr(&self) -> String {
@@ -93,18 +93,15 @@ fn collapse_monotonic_ascii_redraws(input: &str) -> String {
     let mut output = String::with_capacity(input.len());
     let mut line_start = 0;
 
-    for (newline_index, _) in input.match_indices('
-') {
+    for (newline_index, _) in input.match_indices('\n') {
         let raw_line = &input[line_start..newline_index];
 
-        if let Some(body) = raw_line.strip_suffix('') {
+        if let Some(body) = raw_line.strip_suffix('\r') {
             output.push_str(collapse_redraw_body(body).unwrap_or(body));
-            output.push_str("
-");
+            output.push_str("\r\n");
         } else {
             output.push_str(collapse_redraw_body(raw_line).unwrap_or(raw_line));
-            output.push('
-');
+            output.push('\n');
         }
 
         line_start = newline_index + 1;
@@ -116,7 +113,7 @@ fn collapse_monotonic_ascii_redraws(input: &str) -> String {
 }
 
 fn collapse_redraw_body(body: &str) -> Option<&str> {
-    if !body.contains('') {
+    if !body.contains('\r') {
         return None;
     }
 
@@ -124,7 +121,7 @@ fn collapse_redraw_body(body: &str) -> Option<&str> {
     let mut final_frame = None;
     let mut frame_count = 0;
 
-    for frame in body.split('') {
+    for frame in body.split('\r') {
         if frame.is_empty() || !frame.bytes().all(|byte| (0x20..=0x7e).contains(&byte)) {
             return None;
         }
@@ -148,15 +145,15 @@ mod tests {
     #[test]
     fn strips_only_recognized_sgr_sequences() {
         assert_eq!(
-            strip_recognized_sgr("[31mred[0m plain"),
+            strip_recognized_sgr("\u{1b}[31mred\u{1b}[0m plain"),
             "red plain"
         );
         assert_eq!(
-            strip_recognized_sgr("[38;2;255;0;128mtrue[m"),
+            strip_recognized_sgr("\u{1b}[38;2;255;0;128mtrue\u{1b}[m"),
             "true"
         );
         assert_eq!(
-            strip_recognized_sgr("[38:5:42mindexed[0m"),
+            strip_recognized_sgr("\u{1b}[38:5:42mindexed\u{1b}[0m"),
             "indexed"
         );
     }
@@ -164,10 +161,10 @@ mod tests {
     #[test]
     fn leaves_unknown_or_malformed_escape_sequences_exact() {
         for value in [
-            "[2Jclear",
-            "[Hhome",
-            "[31unterminated",
-            "]8;;https://example.com\\link]8;;\\",
+            "\u{1b}[2Jclear",
+            "\u{1b}[Hhome",
+            "\u{1b}[31unterminated",
+            "\u{1b}]8;;https://example.com\u{1b}\\\\link\u{1b}]8;;\u{1b}\\\\",
             "literal [31m",
         ] {
             assert_eq!(strip_recognized_sgr(value), value);
@@ -177,7 +174,7 @@ mod tests {
     #[test]
     fn sgr_stripping_preserves_unicode_payload() {
         assert_eq!(
-            strip_recognized_sgr("α [1m中😀[22m ω"),
+            strip_recognized_sgr("α \u{1b}[1m中😀\u{1b}[22m ω"),
             "α 中😀 ω"
         );
     }
@@ -187,9 +184,9 @@ mod tests {
         for value in [
             "",
             "plain",
-            "[31mred[0m",
-            "[2Jnot-sgr",
-            "é[1m中[0m",
+            "\u{1b}[31mred\u{1b}[0m",
+            "\u{1b}[2Jnot-sgr",
+            "é\u{1b}[1m中\u{1b}[0m",
         ] {
             let once = strip_recognized_sgr(value);
             let twice = strip_recognized_sgr(&once);
@@ -201,19 +198,15 @@ mod tests {
     #[test]
     fn collapses_monotonic_ascii_progress_and_spinner_redraws() {
         assert_eq!(
-            collapse_monotonic_ascii_redraws("9%10%100%
-"),
-            "100%
-"
+            collapse_monotonic_ascii_redraws("9%\r10%\r100%\n"),
+            "100%\n"
         );
         assert_eq!(
-            collapse_monotonic_ascii_redraws("|/-Done
-"),
-            "Done
-"
+            collapse_monotonic_ascii_redraws("|\r/\r-\rDone\n"),
+            "Done\n"
         );
         assert_eq!(
-            collapse_monotonic_ascii_redraws("abcdefghi"),
+            collapse_monotonic_ascii_redraws("abc\rdef\rghi"),
             "ghi"
         );
     }
@@ -221,19 +214,13 @@ mod tests {
     #[test]
     fn preserves_shrinking_or_non_ascii_redraws() {
         for value in [
-            "100%9%
-",
-            "Done|
-",
-            "ééabc
-",
-            "abc中中
-",
-            "abc	def
-",
-            "abc
-",
-            "abc",
+            "100%\r9%\n",
+            "Done\r|\n",
+            "éé\rabc\n",
+            "abc\r中中\n",
+            "abc\r\tdef\n",
+            "abc\r\n",
+            "abc\r",
         ] {
             assert_eq!(collapse_monotonic_ascii_redraws(value), value);
         }
@@ -242,12 +229,8 @@ mod tests {
     #[test]
     fn preserves_crlf_while_collapsing_safe_redraw_body() {
         assert_eq!(
-            collapse_monotonic_ascii_redraws("10%20%
-next
-"),
-            "20%
-next
-"
+            collapse_monotonic_ascii_redraws("10%\r20%\r\nnext\r\n"),
+            "20%\r\nnext\r\n"
         );
     }
 
@@ -255,18 +238,12 @@ next
     fn redraw_primitive_is_idempotent_and_non_expanding() {
         for value in [
             "",
-            "plain
-",
-            "9%10%100%
-",
-            "|/-Done
-",
-            "100%9%
-",
-            "abbcccdddd",
-            "a
-bcc
-c",
+            "plain\n",
+            "9%\r10%\r100%\n",
+            "|\r/\r-\rDone\n",
+            "100%\r9%\n",
+            "a\rbb\rccc\rdddd",
+            "a\nb\rcc\nc",
         ] {
             let once = collapse_monotonic_ascii_redraws(value);
             let twice = collapse_monotonic_ascii_redraws(&once);
@@ -277,12 +254,7 @@ c",
 
     #[test]
     fn does_not_minify_whitespace_blank_lines_or_repetition() {
-        let value = "a
-
-  a  
-a
-a
-";
+        let value = "a\n\n  a  \na\na\n";
         assert_eq!(strip_recognized_sgr(value), value);
         assert_eq!(collapse_monotonic_ascii_redraws(value), value);
     }
