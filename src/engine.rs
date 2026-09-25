@@ -42,18 +42,10 @@ pub enum EngineConfigError {
     MaxInputBytesOutOfRange { received: usize },
 }
 
+#[derive(Default)]
 pub struct Engine {
     config: EngineConfig,
     profiles: Vec<Box<dyn Profile>>,
-}
-
-impl Default for Engine {
-    fn default() -> Self {
-        Self {
-            config: EngineConfig::default(),
-            profiles: Vec::new(),
-        }
-    }
 }
 
 impl Engine {
