@@ -121,7 +121,7 @@ mod tests {
         let input = "FAIL one\r\nok\nFAIL two";
         assert_eq!(
             line_prefix_spans(input, "FAIL").unwrap(),
-            vec![ByteSpan::new(0, 8), ByteSpan::new(12, 20)]
+            vec![ByteSpan::new(0, 8), ByteSpan::new(13, 21)]
         );
         assert_eq!(
             exact_line_spans(input, "ok").unwrap(),
