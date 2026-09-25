@@ -142,11 +142,26 @@ impl LoadedFixture {
             return Err(HarnessError::new("fixture id must not be empty"));
         }
 
+        let directory_id = root
+            .file_name()
+            .and_then(|value| value.to_str())
+            .ok_or_else(|| HarnessError::new("fixture directory must have a UTF-8 name"))?;
+        if directory_id != case.id {
+            return Err(HarnessError::new(format!(
+                "fixture id {:?} does not match directory {:?}",
+                case.id, directory_id
+            )));
+        }
+
         validate_provenance(&case)?;
+        validate_preservation_metadata(&case)?;
 
         let input = read(&root.join("input.txt"))?;
         let expected = match &case.expect.golden {
-            Some(path) => Some(read(&root.join(path))?),
+            Some(path) => {
+                validate_relative_fixture_path(path)?;
+                Some(read(&root.join(path))?)
+            }
             None => None,
         };
 
@@ -204,7 +219,7 @@ pub fn verify_fixture(engine: &Engine, fixture: &LoadedFixture) -> Result<(), Ha
     }
 
     let expected_profile = nonempty(&fixture.case.expect.profile);
-    if result.profile != expected_profile {
+    if result.profile.as_deref() != expected_profile.as_deref() {
         return Err(HarnessError::new(format!(
             "fixture {} expected profile {:?}, got {:?}",
             fixture.case.id, expected_profile, result.profile
@@ -284,6 +299,47 @@ fn verify_property(
         FixtureProperty::PreservesRequiredLiterals => {
             // Required literals are checked unconditionally above.
         }
+    }
+
+    Ok(())
+}
+
+fn validate_preservation_metadata(case: &FixtureCase) -> Result<(), HarnessError> {
+    if case
+        .preservation
+        .mandatory_signal_ids
+        .iter()
+        .any(|value| value.is_empty())
+    {
+        return Err(HarnessError::new(
+            "mandatory_signal_ids must not contain empty values",
+        ));
+    }
+
+    if case
+        .preservation
+        .permitted_removals
+        .iter()
+        .any(|value| value.is_empty())
+    {
+        return Err(HarnessError::new(
+            "permitted_removals must not contain empty values",
+        ));
+    }
+
+    Ok(())
+}
+
+fn validate_relative_fixture_path(value: &str) -> Result<(), HarnessError> {
+    let path = Path::new(value);
+    if path.is_absolute()
+        || path
+            .components()
+            .any(|component| matches!(component, std::path::Component::ParentDir))
+    {
+        return Err(HarnessError::new(
+            "fixture golden path must remain inside the fixture directory",
+        ));
     }
 
     Ok(())
