@@ -144,6 +144,7 @@ pub enum DiagnosticCodeV1 {
     IncompleteInput,
     UnknownTermination,
     TerminationNotExited,
+    SafeNormalizationFailed,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
