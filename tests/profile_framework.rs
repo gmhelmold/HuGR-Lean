@@ -6,7 +6,7 @@ use hugr_lean::preservation::{LeanWriter, PreservationContract};
 use hugr_lean::profile::{
     AnalysisBundle, BoundaryAssumption, Profile, ProfileAnalysis, ProfileContext,
     ProfileDescriptor, ProfileError, ProfileMatch, ProfileRegistry, ProfileRegistryError,
-}; 
+};
 use hugr_lean::protocol::{
     CompletenessV1, DecisionV1, ObservationV1, PresentationV1, ShellDialectV1, SourceV1,
     TerminationV1, PROTOCOL_V1,
