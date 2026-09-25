@@ -182,7 +182,7 @@ impl Signal {
         noun: &'static str,
     ) -> Result<Self, EvidenceError> {
         validate_rule_id(rule_id)?;
-        validate_source_spans(input, &source_spans)?;
+        validate_count_source_spans(input, &source_spans)?;
         let canonical_text = format!("{} {noun}", source_spans.len());
 
         Ok(Self {
@@ -223,7 +223,7 @@ impl DerivedEvidence {
         noun: &'static str,
     ) -> Result<Self, EvidenceError> {
         validate_rule_id(rule_id)?;
-        validate_source_spans(input, &source_spans)?;
+        validate_count_source_spans(input, &source_spans)?;
 
         Ok(Self {
             rendered_text: format!("{} {noun}", source_spans.len()),
@@ -252,6 +252,7 @@ pub enum EvidenceError {
     UnavailableOutcomeField,
     EmptyCanonicalText,
     InvalidRuleId,
+    NonMonotonicSourceSpans,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -392,6 +393,23 @@ fn validate_rule_id(rule_id: &'static str) -> Result<(), EvidenceError> {
     } else {
         Ok(())
     }
+}
+
+fn validate_count_source_spans(
+    input: &str,
+    source_spans: &[ByteSpan],
+) -> Result<(), EvidenceError> {
+    validate_source_spans(input, source_spans)?;
+
+    for pair in source_spans.windows(2) {
+        let previous = pair[0];
+        let next = pair[1];
+        if previous.start_byte >= next.start_byte || previous.end_byte > next.start_byte {
+            return Err(EvidenceError::NonMonotonicSourceSpans);
+        }
+    }
+
+    Ok(())
 }
 
 fn validate_source_spans(input: &str, source_spans: &[ByteSpan]) -> Result<(), EvidenceError> {
