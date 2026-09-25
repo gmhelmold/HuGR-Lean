@@ -8,6 +8,7 @@ pub mod command;
 pub mod engine;
 pub mod normalize;
 pub mod preservation;
+pub mod primitive;
 pub mod profile;
 pub mod protocol;
 
