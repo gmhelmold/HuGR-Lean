@@ -45,7 +45,7 @@ pub fn recognize_shell_command(
     command: &str,
     dialect: ShellDialectV1,
 ) -> CommandRecognition {
-    if command.is_empty() || command.contains(['\n', '\r']) {
+    if command.is_empty() || command.contains('\n') || command.contains('\r') {
         return CommandRecognition::ComplexOrUnknown;
     }
 
@@ -64,7 +64,7 @@ pub fn recognize_shell_command(
     }
 
     let executable = tokens[executable_index];
-    if !is_portable_bare_token(executable) {
+    if !is_portable_executable_token(executable) {
         return CommandRecognition::ComplexOrUnknown;
     }
 
@@ -123,6 +123,12 @@ fn is_posix_name(name: &str) -> bool {
 /// The allowlist is intentionally narrow. Anything that could plausibly carry
 /// shell quoting, expansion, substitution, grouping, globbing, redirection, or
 /// command chaining is rejected rather than interpreted.
+fn is_portable_executable_token(token: &str) -> bool {
+    !token.ends_with(['/', '\\'])
+        && is_portable_bare_token(token)
+        && !token.contains('=')
+}
+
 fn is_portable_bare_token(token: &str) -> bool {
     !token.is_empty()
         && token.chars().all(|ch| {
