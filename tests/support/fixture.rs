@@ -4,6 +4,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::path::Path;
 
 use hugr_lean::engine::Engine;
+use hugr_lean::normalize::terminal_safe_text;
 use hugr_lean::protocol::{
     CompletenessV1, DecisionV1, ObservationV1, PresentationV1, ShellDialectV1, SourceV1,
     TerminationKindV1, TerminationV1, PROTOCOL_V1,
@@ -17,6 +18,7 @@ pub struct FixtureCase {
     pub id: String,
     pub kind: FixtureKind,
     pub observation: FixtureObservation,
+    pub normalization: Option<FixtureNormalization>,
     pub expect: FixtureExpectation,
     pub preservation: FixturePreservation,
     pub provenance: FixtureProvenance,
@@ -30,6 +32,20 @@ pub enum FixtureKind {
     Profile,
     Integration,
     Regression,
+}
+
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct FixtureNormalization {
+    pub primitive: FixtureNormalizationPrimitive,
+}
+
+#[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FixtureNormalizationPrimitive {
+    StripSgr,
+    CarriageRedraw,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -152,6 +168,7 @@ impl LoadedFixture {
             )));
         }
 
+        validate_kind_and_normalization(&case)?;
         validate_kind_and_provenance(&case)?;
         validate_provenance(&case)?;
         validate_preservation_metadata(&case)?;
@@ -203,13 +220,90 @@ pub fn parse_case_toml(input: &str) -> Result<FixtureCase, HarnessError> {
         .map_err(|error| HarnessError::new(format!("invalid fixture TOML: {error}")))
 }
 
+pub fn verify_normalization_fixture(fixture: &LoadedFixture) -> Result<(), HarnessError> {
+    if fixture.case.kind != FixtureKind::Normalization {
+        return Err(HarnessError::new(
+            "normalization verifier requires fixture kind = normalization",
+        ));
+    }
+
+    let primitive = fixture
+        .case
+        .normalization
+        .ok_or_else(|| HarnessError::new("normalization primitive is missing"))?;
+    let observation = fixture.observation()?;
+    let result = run_normalization_primitive(&observation, primitive)?;
+    verify_result(fixture, &observation, &result, |next| {
+        run_normalization_primitive(next, primitive)
+    })
+}
+
+fn run_normalization_primitive(
+    observation: &ObservationV1,
+    primitive: FixtureNormalizationPrimitive,
+) -> Result<hugr_lean::protocol::FilterResultV1, HarnessError> {
+    let input_bytes = observation.output.len() as u64;
+
+    let Some(terminal) = terminal_safe_text(observation) else {
+        return Ok(hugr_lean::protocol::FilterResultV1::passthrough(
+            observation.output.len(),
+        ));
+    };
+
+    let replacement = match primitive {
+        FixtureNormalizationPrimitive::StripSgr => terminal.strip_sgr(),
+        FixtureNormalizationPrimitive::CarriageRedraw => terminal.collapse_carriage_redraws(),
+    };
+
+    if replacement == observation.output {
+        return Ok(hugr_lean::protocol::FilterResultV1::passthrough(
+            observation.output.len(),
+        ));
+    }
+
+    let output_bytes = replacement.len() as u64;
+    let result = hugr_lean::protocol::FilterResultV1 {
+        schema_version: PROTOCOL_V1,
+        decision: DecisionV1::Normalized,
+        replacement: Some(replacement),
+        profile: None,
+        metrics: hugr_lean::protocol::MetricsV1 {
+            input_bytes,
+            output_bytes,
+            saved_bytes: input_bytes.saturating_sub(output_bytes),
+        },
+        raw_ref: None,
+        diagnostics: Vec::new(),
+    };
+    result
+        .validate()
+        .map_err(|error| HarnessError::new(error.to_string()))?;
+    Ok(result)
+}
+
 pub fn verify_fixture(engine: &Engine, fixture: &LoadedFixture) -> Result<(), HarnessError> {
     let observation = fixture.observation()?;
-    let input = observation.output.clone();
-
     let result = catch_unwind(AssertUnwindSafe(|| engine.process(observation.clone())))
         .map_err(|_| HarnessError::new(format!("fixture {} panicked", fixture.case.id)))?
         .map_err(|error| HarnessError::new(error.to_string()))?;
+
+    verify_result(fixture, &observation, &result, |next| {
+        engine
+            .process(next.clone())
+            .map_err(|error| HarnessError::new(error.to_string()))
+    })
+}
+
+fn verify_result<F>(
+    fixture: &LoadedFixture,
+    observation: &ObservationV1,
+    result: &hugr_lean::protocol::FilterResultV1,
+    rerun: F,
+) -> Result<(), HarnessError>
+where
+    F: Fn(&ObservationV1) -> Result<hugr_lean::protocol::FilterResultV1, HarnessError>,
+{
+    let input = observation.output.clone();
 
     if result.decision != fixture.case.expect.decision {
         return Err(HarnessError::new(format!(
@@ -256,19 +350,22 @@ pub fn verify_fixture(engine: &Engine, fixture: &LoadedFixture) -> Result<(), Ha
     }
 
     for property in &fixture.case.expect.properties {
-        verify_property(*property, engine, &observation, &result, effective)?;
+        verify_property(*property, observation, result, effective, &rerun)?;
     }
 
     Ok(())
 }
 
-fn verify_property(
+fn verify_property<F>(
     property: FixtureProperty,
-    engine: &Engine,
     observation: &ObservationV1,
     result: &hugr_lean::protocol::FilterResultV1,
     effective: &str,
-) -> Result<(), HarnessError> {
+    rerun: &F,
+) -> Result<(), HarnessError>
+where
+    F: Fn(&ObservationV1) -> Result<hugr_lean::protocol::FilterResultV1, HarnessError>,
+{
     match property {
         FixtureProperty::NonExpanding => {
             if effective.len() > observation.output.len()
@@ -280,9 +377,8 @@ fn verify_property(
         FixtureProperty::Idempotent => {
             let mut second_observation = observation.clone();
             second_observation.output = effective.to_owned();
-            let second = catch_unwind(AssertUnwindSafe(|| engine.process(second_observation)))
-                .map_err(|_| HarnessError::new("idempotence re-run panicked"))?
-                .map_err(|error| HarnessError::new(error.to_string()))?;
+            let second = catch_unwind(AssertUnwindSafe(|| rerun(&second_observation)))
+                .map_err(|_| HarnessError::new("idempotence re-run panicked"))??;
             let second_effective = second.replacement.as_deref().unwrap_or(effective);
             if second_effective != effective {
                 return Err(HarnessError::new("idempotence property failed"));
@@ -293,15 +389,24 @@ fn verify_property(
                 return Err(HarnessError::new("passthrough_exact property failed"));
             }
         }
-        FixtureProperty::NoPanic => {
-            // The main verification call is already wrapped in catch_unwind.
-        }
-        FixtureProperty::PreservesRequiredLiterals => {
-            // Required literals are checked unconditionally above.
-        }
+        FixtureProperty::NoPanic => {}
+        FixtureProperty::PreservesRequiredLiterals => {}
     }
 
     Ok(())
+}
+
+fn validate_kind_and_normalization(case: &FixtureCase) -> Result<(), HarnessError> {
+    match (case.kind, case.normalization) {
+        (FixtureKind::Normalization, Some(_)) => Ok(()),
+        (FixtureKind::Normalization, None) => Err(HarnessError::new(
+            "normalization fixture requires [normalization] metadata",
+        )),
+        (_, Some(_)) => Err(HarnessError::new(
+            "[normalization] metadata is only valid for normalization fixtures",
+        )),
+        (_, None) => Ok(()),
+    }
 }
 
 fn validate_kind_and_provenance(case: &FixtureCase) -> Result<(), HarnessError> {
