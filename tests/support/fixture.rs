@@ -1,7 +1,7 @@
 use std::fmt;
 use std::fs;
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use hugr_lean::engine::Engine;
 use hugr_lean::protocol::{
