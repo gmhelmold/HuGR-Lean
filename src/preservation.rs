@@ -262,13 +262,8 @@ impl DerivedEvidence {
     }
 }
 
-
 impl ProfileContext<'_> {
-    pub fn verbatim_signal(
-        &self,
-        id: SignalId,
-        span: ByteSpan,
-    ) -> Result<Signal, EvidenceError> {
+    pub fn verbatim_signal(&self, id: SignalId, span: ByteSpan) -> Result<Signal, EvidenceError> {
         Signal::verbatim(id, self.safe_baseline, span)
     }
 
