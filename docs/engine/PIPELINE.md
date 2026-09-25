@@ -1,7 +1,7 @@
 # Core Engine Pipeline v1
 
 **Implements:** WP1.3 / issue #23  
-**Normative parent:** `docs/TECHNICAL_SPEC.md` §§8, 10, 13, 15
+**Normative parent:** `docs/TECHNICAL_SPEC.md` §§8, 10, 13, 14, 15
 
 ## Current pipeline
 
@@ -39,17 +39,22 @@ check profile requirements
     +-- unmet ------------> failed_open
     |
     v
-analyze
+analyze -> AnalysisBundle { typed data + PreservationContract }
     |
     +-- error ------------> failed_open(profile_parse_failed)
     |
     v
-render
+render through LeanWriter
     |
     +-- error ------------> failed_open(profile_parse_failed)
     |
     v
-validate
+validate required emitted signals
+    |
+    +-- missing ----------> failed_open(preservation_failed)
+    |
+    v
+profile-specific validate
     |
     +-- error ------------> failed_open(preservation_failed)
     |
@@ -62,9 +67,9 @@ non-expansion guard
 reduced result + exact byte metrics
 ~~~
 
-## Safe baseline in WP1.3
+## Current safe baseline
 
-SafeNormalization is implemented by WP2, so WP1.3 deliberately defines:
+Until WP2 implements SafeNormalization, the engine deliberately defines:
 
 ~~~text
 safe_baseline = ObservationV1.output
@@ -121,7 +126,7 @@ The sequence remains explicit:
 recognize -> analyze -> render -> validate
 ~~~
 
-WP1.4 will add evidence-backed Signal/LeanWriter preservation machinery behind this contract.
+WP1.4 adds evidence-backed `Signal`, `LeanWriter`, and `PreservationContract` machinery behind this contract. See `docs/preservation/CONTRACTS.md`.
 
 ## Fail-open
 
@@ -191,12 +196,10 @@ No token estimator is involved.
 
 ## No behavior added here
 
-WP1.3 does not implement:
+The current core does not implement:
 
 - real production profiles;
 - SafeNormalization;
-- Signal construction;
-- LeanWriter;
 - raw storage;
 - host adapters;
 - command rewriting;
