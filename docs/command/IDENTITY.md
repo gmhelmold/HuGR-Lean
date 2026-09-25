@@ -19,6 +19,8 @@ Non-shell observations are identified only by their normalized `SourceV1` in WP1
 
 When `shell_dialect = unknown`, HuGR-Lean recognizes only portable bare commands.
 
+A leading assignment-looking token is **not** treated as an executable. Because the dialect is unknown, HuGR-Lean cannot safely decide whether it is shell environment syntax, so the whole command remains `ComplexOrUnknown`.
+
 Examples accepted:
 
 ~~~text
@@ -30,11 +32,13 @@ npm test
 ./node_modules/.bin/eslint src/lib.rs
 ~~~
 
-Tokens use a deliberately narrow ASCII allowlist:
+Argument tokens use a deliberately narrow ASCII allowlist:
 
 ~~~text
 A-Z a-z 0-9 _ - . / : = @ + ,
 ~~~
+
+Executable tokens use the same grammar but additionally reject `=` and a trailing path separator.
 
 This is a routing grammar, not a general shell grammar.
 
