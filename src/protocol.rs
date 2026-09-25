@@ -66,12 +66,20 @@ impl TerminationV1 {
             (TerminationKindV1::Exited, None) => Err(ProtocolError::InvalidObservation(
                 "termination kind exited requires an exit code",
             )),
-            (TerminationKindV1::Unknown | TerminationKindV1::Aborted | TerminationKindV1::TimedOut, None) => Ok(()),
-            (TerminationKindV1::Unknown | TerminationKindV1::Aborted | TerminationKindV1::TimedOut, Some(_)) => {
-                Err(ProtocolError::InvalidObservation(
-                    "non-exited termination must not carry an exit code",
-                ))
-            }
+            (
+                TerminationKindV1::Unknown
+                | TerminationKindV1::Aborted
+                | TerminationKindV1::TimedOut,
+                None,
+            ) => Ok(()),
+            (
+                TerminationKindV1::Unknown
+                | TerminationKindV1::Aborted
+                | TerminationKindV1::TimedOut,
+                Some(_),
+            ) => Err(ProtocolError::InvalidObservation(
+                "non-exited termination must not carry an exit code",
+            )),
         }
     }
 }
@@ -184,11 +192,12 @@ impl FilterResultV1 {
 
         match self.decision {
             DecisionV1::Normalized | DecisionV1::Reduced => {
-                let replacement = self.replacement.as_ref().ok_or(
-                    ProtocolError::InvalidResult(
+                let replacement = self
+                    .replacement
+                    .as_ref()
+                    .ok_or(ProtocolError::InvalidResult(
                         "normalized/reduced result requires replacement text",
-                    ),
-                )?;
+                    ))?;
                 if usize_to_u64(replacement.len()) != self.metrics.output_bytes {
                     return Err(ProtocolError::InvalidResult(
                         "output_bytes does not match replacement byte length",
@@ -255,12 +264,17 @@ impl fmt::Display for ProtocolError {
                 write!(formatter, "protocol envelope exceeds {limit} bytes")
             }
             Self::UnsupportedSchemaVersion { received } => {
-                write!(formatter, "unsupported schema_version {received}; expected {PROTOCOL_V1}")
+                write!(
+                    formatter,
+                    "unsupported schema_version {received}; expected {PROTOCOL_V1}"
+                )
             }
             Self::InvalidObservation(message) => {
                 write!(formatter, "invalid Protocol V1 observation: {message}")
             }
-            Self::InvalidResult(message) => write!(formatter, "invalid Protocol V1 result: {message}"),
+            Self::InvalidResult(message) => {
+                write!(formatter, "invalid Protocol V1 result: {message}")
+            }
         }
     }
 }
@@ -308,9 +322,7 @@ pub fn write_result_v1<W: Write>(
 }
 
 fn read_bounded<R: Read>(reader: R, limit: usize) -> Result<Vec<u8>, ProtocolError> {
-    let take_limit = u64::try_from(limit)
-        .unwrap_or(u64::MAX)
-        .saturating_add(1);
+    let take_limit = u64::try_from(limit).unwrap_or(u64::MAX).saturating_add(1);
 
     let mut bounded = reader.take(take_limit);
     let mut bytes = Vec::with_capacity(limit.min(64 * 1024));
