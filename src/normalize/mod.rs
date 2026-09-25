@@ -48,9 +48,6 @@ pub fn terminal_safe_text(observation: &ObservationV1) -> Option<TerminalSafeTex
         None
     }
 }
-
-
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SafeNormalizationOutcome {
     NotApplicable,
@@ -95,10 +92,7 @@ fn compose_terminal_normalization(input: &str) -> String {
     collapse_monotonic_ascii_redraws(&without_sgr)
 }
 
-fn validate_composed_candidate(
-    input: &str,
-    candidate: &str,
-) -> Result<(), SafeNormalizationError> {
+fn validate_composed_candidate(input: &str, candidate: &str) -> Result<(), SafeNormalizationError> {
     if candidate.len() > input.len() {
         return Err(SafeNormalizationError::Expanded);
     }
