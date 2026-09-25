@@ -309,8 +309,16 @@ impl LeanWriter {
 
     /// Static labels/punctuation only.
     ///
-    /// The &'static str type intentionally prevents normal observation-derived
-    /// strings from flowing through this method.
+    /// The `&'static str` type intentionally prevents normal
+    /// observation-derived strings from flowing through this method.
+    ///
+    /// ```compile_fail
+    /// use hugr_lean::preservation::LeanWriter;
+    ///
+    /// let mut writer = LeanWriter::new();
+    /// let dynamic = String::from("observation-derived");
+    /// writer.static_text(&dynamic);
+    /// ```
     pub fn static_text(&mut self, text: &'static str) {
         self.text.push_str(text);
     }
