@@ -21,14 +21,15 @@ Preservation Contract validation
 
 A `Signal` contains a `SignalId`, canonical text, and an explicit `EvidenceRef`. Signals cannot be constructed by arbitrary public field assignment.
 
-Supported constructors are intentionally narrow:
+Profiles do not call low-level `Signal` constructors directly. They create evidence through the `ProfileContext` bound to the engine's actual baseline/observation:
 
-- `Signal::verbatim(...)` — exact validated UTF-8 input span.
-- `Signal::canonicalized(...)` — validated span transformed by a closed named rule.
-- `Signal::from_outcome(...)` — explicit observation state such as exit/termination/completeness.
-- `Signal::derived_count(...)` — mechanically calculated count from validated, source-ordered, non-overlapping spans.
+- `context.verbatim_signal(...)` — exact validated UTF-8 baseline span.
+- `context.canonicalized_signal(...)` — baseline span transformed by a closed named rule.
+- `context.outcome_signal(...)` — explicit bound observation state such as exit/termination/completeness.
+- `context.derived_count_signal(...)` — mechanically calculated count from validated, source-ordered, non-overlapping baseline spans.
+- `context.derived_count(...)` — display-only derived evidence with the same provenance rules.
 
-Canonicalization currently exposes only the closed `trim_ascii_whitespace` rule. Empty canonical evidence is rejected.
+The low-level evidence constructors are crate-private; a compile-fail doctest proves they are unavailable to an external profile implementation. Canonicalization currently exposes only the closed `trim_ascii_whitespace` rule. Empty canonical evidence is rejected.
 
 An exit-code signal is unavailable unless termination is actually `Exited`.
 
