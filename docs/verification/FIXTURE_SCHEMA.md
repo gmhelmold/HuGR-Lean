@@ -31,7 +31,7 @@ source = "other"           # shell | read | search | lsp | mcp | browser | other
 command = ""
 shell_dialect = "unknown"  # unknown | posix | powershell | cmd
 termination = "unknown"    # unknown | exited | aborted | timed_out
-exit_code = 0              # only meaningful when termination = exited
+# exit_code = 0            # required only when termination = exited
 completeness = "complete"  # unknown | complete | truncated
 presentation = "unknown"   # unknown | terminal_rendered
 
@@ -57,7 +57,9 @@ origin_issue = 0
 notes = ""
 ~~~
 
-The eventual Rust fixture loader may refine serialization details but must preserve these semantics.
+The Rust verification harness implements this metadata contract in `tests/support/fixture.rs`.
+
+Fixture TOML is intentionally distinct from the Protocol V1 JSON wire representation. The loader maps this compact metadata into `ObservationV1`, then runs the real engine.
 
 ## Semantics
 
@@ -89,10 +91,11 @@ Initial property vocabulary:
 - `idempotent`
 - `passthrough_exact`
 - `no_panic`
-- `preserves_failure_state`
 - `preserves_required_literals`
 
 New property names require implementation/test support.
+
+Failure-state preservation is intentionally **not** a generic fixture property because a `FilterResultV1` does not carry mutable execution outcome state. Profiles that must preserve failure evidence express that through runtime Preservation Contracts and outcome-backed Signals.
 
 ### Permitted removals
 
