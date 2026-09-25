@@ -210,7 +210,6 @@ fn exited_requirement_fails_open_when_termination_is_unknown() {
     );
 }
 
-
 #[test]
 fn exited_requirement_distinguishes_known_non_exit_termination() {
     let mut profile = TestProfile::reducing("cargo", "cargo", "ok");
