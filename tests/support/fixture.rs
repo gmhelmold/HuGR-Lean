@@ -206,7 +206,6 @@ pub fn parse_case_toml(input: &str) -> Result<FixtureCase, HarnessError> {
         .map_err(|error| HarnessError::new(format!("invalid fixture TOML: {error}")))
 }
 
-
 pub fn validate_fixture_case(case: &FixtureCase) -> Result<(), HarnessError> {
     if case.schema != 1 {
         return Err(HarnessError::new(format!(
@@ -307,9 +306,7 @@ pub fn verify_normalization_fixture(fixture: &LoadedFixture) -> Result<(), Harne
 
         match normalization.primitive {
             NormalizationPrimitive::StripSgr => terminal.strip_sgr(),
-            NormalizationPrimitive::CollapseCarriageRedraws => {
-                terminal.collapse_carriage_redraws()
-            }
+            NormalizationPrimitive::CollapseCarriageRedraws => terminal.collapse_carriage_redraws(),
         }
     }))
     .map_err(|_| HarnessError::new(format!("fixture {} panicked", fixture.case.id)))?;
