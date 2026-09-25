@@ -285,12 +285,12 @@ impl Profile for EvidenceProfile {
             .safe_baseline
             .find(needle)
             .ok_or_else(ProfileError::analyze)?;
-        let signal = Signal::verbatim(
-            FAILURE_ID,
-            context.safe_baseline,
-            ByteSpan::new(start, start + needle.len()),
-        )
-        .map_err(|_| ProfileError::analyze())?;
+        let signal = context
+            .verbatim_signal(
+                FAILURE_ID,
+                ByteSpan::new(start, start + needle.len()),
+            )
+            .map_err(|_| ProfileError::analyze())?;
 
         Ok(AnalysisBundle::new(
             Box::new(EvidenceAnalysis {
