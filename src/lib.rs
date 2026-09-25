@@ -1,19 +1,21 @@
 //! HuGR-Lean core library.
 //!
-//! Protocol V1 defines the host-independent boundary. Invocation identity is
-//! deliberately conservative: unsupported shell syntax remains unknown rather
-//! than being guessed.
+//! Protocol V1 defines the host-independent boundary. Invocation identity and
+//! the routing engine are deliberately conservative: unsupported or ambiguous
+//! observations fail open rather than being guessed.
 
 pub mod command;
+pub mod engine;
+pub mod profile;
 pub mod protocol;
 
+use engine::Engine;
 use protocol::{FilterResultV1, ObservationV1, ProtocolError};
 
-/// Process one validated Protocol V1 observation.
+/// Process one Protocol V1 observation using the default engine.
 ///
-/// WP1.1/WP1.2 deliberately return passthrough. The engine pipeline that may
-/// route profiles or produce normalized/reduced output belongs to WP1.3.
+/// The default engine intentionally has no registered profiles yet, so it is a
+/// deterministic passthrough. Profile implementations are added by later work.
 pub fn process_v1(observation: ObservationV1) -> Result<FilterResultV1, ProtocolError> {
-    observation.validate()?;
-    Ok(FilterResultV1::passthrough(observation.output.len()))
+    Engine::default().process(observation)
 }

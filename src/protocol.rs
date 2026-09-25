@@ -143,6 +143,7 @@ pub enum DiagnosticCodeV1 {
     ProtocolWarning,
     IncompleteInput,
     UnknownTermination,
+    TerminationNotExited,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
