@@ -29,7 +29,7 @@ Profiles do not call low-level `Signal` constructors directly. They create evide
 - `context.derived_count_signal(...)` — mechanically calculated count from validated, source-ordered, non-overlapping baseline spans.
 - `context.derived_count(...)` — display-only derived evidence with the same provenance rules.
 
-The low-level evidence constructors are crate-private; a compile-fail doctest proves they are unavailable to an external profile implementation. Canonicalization currently exposes only the closed `trim_ascii_whitespace` rule. Empty canonical evidence is rejected.
+The low-level evidence constructors are module-private; a compile-fail doctest proves they are unavailable to an external profile implementation. Canonicalization currently exposes only the closed `trim_ascii_whitespace` rule. Empty canonical evidence is rejected.
 
 An exit-code signal is unavailable unless termination is actually `Exited`.
 
