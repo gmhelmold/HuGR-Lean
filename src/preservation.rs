@@ -15,6 +15,7 @@ pub struct SignalId(&'static str);
 
 impl SignalId {
     pub const fn new(value: &'static str) -> Self {
+        assert!(!value.is_empty(), "SignalId must not be empty");
         Self(value)
     }
 
@@ -38,7 +39,7 @@ impl ByteSpan {
     }
 
     pub fn validate(self, input: &str) -> Result<(), EvidenceError> {
-        if self.start_byte > self.end_byte || self.end_byte > input.len() {
+        if self.start_byte >= self.end_byte || self.end_byte > input.len() {
             return Err(EvidenceError::InvalidSpan);
         }
 
@@ -123,6 +124,9 @@ impl Signal {
         rule: CanonicalizationRule,
     ) -> Result<Self, EvidenceError> {
         let text = rule.apply(span.extract(input)?);
+        if text.is_empty() {
+            return Err(EvidenceError::EmptyCanonicalText);
+        }
         Ok(Self {
             id,
             canonical_text: text,
@@ -140,6 +144,9 @@ impl Signal {
     ) -> Result<Self, EvidenceError> {
         let canonical_text = match field {
             OutcomeField::ExitCode => {
+                if observation.termination.kind != TerminationKindV1::Exited {
+                    return Err(EvidenceError::UnavailableOutcomeField);
+                }
                 let Some(code) = observation.termination.code else {
                     return Err(EvidenceError::UnavailableOutcomeField);
                 };
@@ -178,6 +185,7 @@ impl Signal {
         source_spans: Vec<ByteSpan>,
         noun: &'static str,
     ) -> Result<Self, EvidenceError> {
+        validate_rule_id(rule_id)?;
         validate_source_spans(input, &source_spans)?;
         let canonical_text = format!("{} {noun}", source_spans.len());
 
@@ -218,6 +226,7 @@ impl DerivedEvidence {
         source_spans: Vec<ByteSpan>,
         noun: &'static str,
     ) -> Result<Self, EvidenceError> {
+        validate_rule_id(rule_id)?;
         validate_source_spans(input, &source_spans)?;
 
         Ok(Self {
@@ -245,6 +254,8 @@ pub enum EvidenceError {
     InvalidSpan,
     InvalidUtf8Boundary,
     UnavailableOutcomeField,
+    EmptyCanonicalText,
+    InvalidRuleId,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -368,6 +379,14 @@ impl RenderedOutput {
 
     pub fn into_text(self) -> String {
         self.text
+    }
+}
+
+fn validate_rule_id(rule_id: &'static str) -> Result<(), EvidenceError> {
+    if rule_id.is_empty() {
+        Err(EvidenceError::InvalidRuleId)
+    } else {
+        Ok(())
     }
 }
 
