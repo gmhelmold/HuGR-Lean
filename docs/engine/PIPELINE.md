@@ -89,9 +89,17 @@ presentation == TerminalRendered
 
 A changed baseline is model-visible as `decision = normalized` when no profile produces a strictly smaller valid result.
 
+## Profile registry
+
+Engine construction first validates the shared `ProfileRegistry`.
+
+The registry rejects invalid/duplicate IDs and any profile that declares a rewrite-dependent boundary assumption. It has no priority or confidence mechanism.
+
+See `docs/profiles/FRAMEWORK.md`.
+
 ## Routing
 
-The engine first calls every registered profile's `recognize` method with **InvocationIdentity only**.
+The engine first calls every admitted profile's `recognize` method with **InvocationIdentity only**.
 
 Only profiles that match identity are allowed to inspect the observation through an optional `shape_guard`.
 
