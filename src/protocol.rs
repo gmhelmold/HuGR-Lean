@@ -30,12 +30,50 @@ pub enum ShellDialectV1 {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-pub enum TerminationV1 {
+#[serde(rename_all = "snake_case")]
+pub enum TerminationKindV1 {
     Unknown,
-    Exited { code: i32 },
+    Exited,
     Aborted,
     TimedOut,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TerminationV1 {
+    pub kind: TerminationKindV1,
+    pub code: Option<i32>,
+}
+
+impl TerminationV1 {
+    pub const fn unknown() -> Self {
+        Self {
+            kind: TerminationKindV1::Unknown,
+            code: None,
+        }
+    }
+
+    pub const fn exited(code: i32) -> Self {
+        Self {
+            kind: TerminationKindV1::Exited,
+            code: Some(code),
+        }
+    }
+
+    pub fn validate(&self) -> Result<(), ProtocolError> {
+        match (self.kind, self.code) {
+            (TerminationKindV1::Exited, Some(_)) => Ok(()),
+            (TerminationKindV1::Exited, None) => Err(ProtocolError::InvalidObservation(
+                "termination kind exited requires an exit code",
+            )),
+            (TerminationKindV1::Unknown | TerminationKindV1::Aborted | TerminationKindV1::TimedOut, None) => Ok(()),
+            (TerminationKindV1::Unknown | TerminationKindV1::Aborted | TerminationKindV1::TimedOut, Some(_)) => {
+                Err(ProtocolError::InvalidObservation(
+                    "non-exited termination must not carry an exit code",
+                ))
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,7 +111,7 @@ impl ObservationV1 {
                 received: self.schema_version,
             });
         }
-        Ok(())
+        self.termination.validate()
     }
 }
 
@@ -144,15 +182,31 @@ impl FilterResultV1 {
             });
         }
 
-        let replacement_is_valid = match self.decision {
-            DecisionV1::Normalized | DecisionV1::Reduced => self.replacement.is_some(),
-            DecisionV1::Passthrough | DecisionV1::FailedOpen => self.replacement.is_none(),
-        };
-
-        if !replacement_is_valid {
-            return Err(ProtocolError::InvalidResult(
-                "decision/replacement combination violates Protocol V1",
-            ));
+        match self.decision {
+            DecisionV1::Normalized | DecisionV1::Reduced => {
+                let replacement = self.replacement.as_ref().ok_or(
+                    ProtocolError::InvalidResult(
+                        "normalized/reduced result requires replacement text",
+                    ),
+                )?;
+                if usize_to_u64(replacement.len()) != self.metrics.output_bytes {
+                    return Err(ProtocolError::InvalidResult(
+                        "output_bytes does not match replacement byte length",
+                    ));
+                }
+            }
+            DecisionV1::Passthrough | DecisionV1::FailedOpen => {
+                if self.replacement.is_some() {
+                    return Err(ProtocolError::InvalidResult(
+                        "passthrough/failed_open result must not echo replacement text",
+                    ));
+                }
+                if self.metrics.output_bytes != self.metrics.input_bytes {
+                    return Err(ProtocolError::InvalidResult(
+                        "passthrough/failed_open output_bytes must equal input_bytes",
+                    ));
+                }
+            }
         }
 
         if self.diagnostics.len() > MAX_DIAGNOSTICS {
@@ -188,6 +242,7 @@ pub enum ProtocolError {
     Json(serde_json::Error),
     EnvelopeTooLarge { limit: usize },
     UnsupportedSchemaVersion { received: u16 },
+    InvalidObservation(&'static str),
     InvalidResult(&'static str),
 }
 
@@ -202,6 +257,9 @@ impl fmt::Display for ProtocolError {
             Self::UnsupportedSchemaVersion { received } => {
                 write!(formatter, "unsupported schema_version {received}; expected {PROTOCOL_V1}")
             }
+            Self::InvalidObservation(message) => {
+                write!(formatter, "invalid Protocol V1 observation: {message}")
+            }
             Self::InvalidResult(message) => write!(formatter, "invalid Protocol V1 result: {message}"),
         }
     }
@@ -214,6 +272,7 @@ impl Error for ProtocolError {
             Self::Json(error) => Some(error),
             Self::EnvelopeTooLarge { .. }
             | Self::UnsupportedSchemaVersion { .. }
+            | Self::InvalidObservation(_)
             | Self::InvalidResult(_) => None,
         }
     }
