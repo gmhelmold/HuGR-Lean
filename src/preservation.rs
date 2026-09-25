@@ -97,21 +97,21 @@ pub enum EvidenceRef {
 }
 
 /// Evidence-bearing dynamic text.
-    ///
-    /// Low-level constructors are intentionally not public. Profiles create
-    /// signals through `ProfileContext`, which binds evidence to the engine's
-    /// actual analysis baseline and observation.
-    ///
-    /// ```compile_fail
-    /// use hugr_lean::preservation::{ByteSpan, Signal, SignalId};
-    ///
-    /// let fabricated = String::from("fabricated");
-    /// let _ = Signal::verbatim(
-    ///     SignalId::new("fake"),
-    ///     &fabricated,
-    ///     ByteSpan::new(0, fabricated.len()),
-    /// );
-    /// ```
+///
+/// Low-level constructors are intentionally not public. Profiles create
+/// signals through `ProfileContext`, which binds evidence to the engine's
+/// actual analysis baseline and observation.
+///
+/// ```compile_fail
+/// use hugr_lean::preservation::{ByteSpan, Signal, SignalId};
+///
+/// let fabricated = String::from("fabricated");
+/// let _ = Signal::verbatim(
+///     SignalId::new("fake"),
+///     &fabricated,
+///     ByteSpan::new(0, fabricated.len()),
+/// );
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Signal {
     id: SignalId,
@@ -120,7 +120,11 @@ pub struct Signal {
 }
 
 impl Signal {
-    pub(crate) fn verbatim(id: SignalId, input: &str, span: ByteSpan) -> Result<Self, EvidenceError> {
+    pub(crate) fn verbatim(
+        id: SignalId,
+        input: &str,
+        span: ByteSpan,
+    ) -> Result<Self, EvidenceError> {
         let text = span.extract(input)?.to_owned();
         Ok(Self {
             id,
@@ -444,8 +448,8 @@ fn validate_source_spans(input: &str, source_spans: &[ByteSpan]) -> Result<(), E
 mod tests {
     use super::*;
     use crate::protocol::{
-        CompletenessV1, ObservationV1, PresentationV1, ShellDialectV1, SourceV1,
-        TerminationV1, PROTOCOL_V1,
+        CompletenessV1, ObservationV1, PresentationV1, ShellDialectV1, SourceV1, TerminationV1,
+        PROTOCOL_V1,
     };
 
     const FAILURE_ID: SignalId = SignalId::new("failure");
@@ -658,8 +662,7 @@ mod tests {
         );
 
         let input = "ERROR";
-        let signal =
-            Signal::verbatim(FAILURE_ID, input, ByteSpan::new(0, input.len())).unwrap();
+        let signal = Signal::verbatim(FAILURE_ID, input, ByteSpan::new(0, input.len())).unwrap();
         let mut emitted = LeanWriter::new();
         emitted.signal(&signal);
         assert_eq!(contract.validate(&emitted.finish()), Ok(()));
