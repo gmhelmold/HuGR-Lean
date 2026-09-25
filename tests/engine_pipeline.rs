@@ -198,7 +198,9 @@ fn exited_requirement_fails_open_when_termination_is_unknown() {
     let mut observation = shell_observation("unknown termination output");
     observation.termination = TerminationV1::unknown();
 
-    let result = engine(vec![Box::new(profile)]).process(observation).unwrap();
+    let result = engine(vec![Box::new(profile)])
+        .process(observation)
+        .unwrap();
 
     assert_eq!(result.decision, DecisionV1::FailedOpen);
     assert_eq!(result.replacement, None);
