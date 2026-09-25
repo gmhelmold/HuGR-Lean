@@ -22,7 +22,7 @@ fn shell_source_does_not_authorize_terminal_normalization() {
     let observation = observation(
         SourceV1::Shell,
         PresentationV1::Unknown,
-        "[31mred[0m",
+        "\u{1b}[31mred\u{1b}[0m",
     );
 
     assert!(terminal_safe_text(&observation).is_none());
@@ -33,7 +33,7 @@ fn terminal_rendered_is_the_applicability_capability() {
     let observation = observation(
         SourceV1::Other,
         PresentationV1::TerminalRendered,
-        "[31mred[0m",
+        "\u{1b}[31mred\u{1b}[0m",
     );
 
     let terminal = terminal_safe_text(&observation).unwrap();
@@ -46,13 +46,11 @@ fn public_terminal_api_exposes_safe_carriage_redraw_primitive() {
     let observation = observation(
         SourceV1::Other,
         PresentationV1::TerminalRendered,
-        "9%10%100%
-",
+        "9%\r10%\r100%\n",
     );
 
     let terminal = terminal_safe_text(&observation).unwrap();
-    assert_eq!(terminal.collapse_carriage_redraws(), "100%
-");
+    assert_eq!(terminal.collapse_carriage_redraws(), "100%\n");
 }
 
 #[test]
@@ -60,8 +58,7 @@ fn public_terminal_api_preserves_unsafe_shrinking_redraw() {
     let observation = observation(
         SourceV1::Shell,
         PresentationV1::TerminalRendered,
-        "100%9%
-",
+        "100%\r9%\n",
     );
 
     let terminal = terminal_safe_text(&observation).unwrap();
