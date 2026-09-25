@@ -61,7 +61,7 @@ impl Engine {
         observation.validate()?;
 
         if observation.output.len() > self.config.max_input_bytes {
-            return Ok(failed_open(
+            return checked(failed_open(
                 observation.output.len(),
                 Some(DiagnosticCodeV1::InputTooLarge),
             ));
@@ -77,17 +77,17 @@ impl Engine {
             identity: &identity,
         };
 
-        let mut matches = self
-            .profiles
-            .iter()
-            .filter(|profile| profile.recognize(&route_context) == ProfileMatch::Match);
+        let mut matches = self.profiles.iter().filter(|profile| {
+            profile.recognize(&identity) == ProfileMatch::Match
+                && profile.shape_guard(&route_context) == ProfileMatch::Match
+        });
 
         let Some(profile) = matches.next() else {
-            return Ok(FilterResultV1::passthrough(observation.output.len()));
+            return checked(FilterResultV1::passthrough(observation.output.len()));
         };
 
         if matches.next().is_some() {
-            return Ok(failed_open(
+            return checked(failed_open(
                 observation.output.len(),
                 Some(DiagnosticCodeV1::AmbiguousProfile),
             ));
@@ -96,9 +96,20 @@ impl Engine {
         if let Err(failure) = profile.requirements().check(&observation) {
             let diagnostic = match failure {
                 RequirementFailure::IncompleteInput => DiagnosticCodeV1::IncompleteInput,
-                RequirementFailure::TerminationNotExited => DiagnosticCodeV1::UnknownTermination,
+                RequirementFailure::TerminationNotExited => match observation.termination.kind {
+                    crate::protocol::TerminationKindV1::Unknown => {
+                        DiagnosticCodeV1::UnknownTermination
+                    }
+                    crate::protocol::TerminationKindV1::Aborted
+                    | crate::protocol::TerminationKindV1::TimedOut => {
+                        DiagnosticCodeV1::TerminationNotExited
+                    }
+                    crate::protocol::TerminationKindV1::Exited => unreachable!(
+                        "exited termination satisfies the exited profile requirement"
+                    ),
+                },
             };
-            return Ok(failed_open(observation.output.len(), Some(diagnostic)));
+            return checked(failed_open(observation.output.len(), Some(diagnostic)));
         }
 
         let context = ProfileContext {
@@ -110,7 +121,7 @@ impl Engine {
         let analysis = match profile.analyze(&context) {
             Ok(analysis) => analysis,
             Err(_) => {
-                return Ok(failed_open(
+                return checked(failed_open(
                     observation.output.len(),
                     Some(DiagnosticCodeV1::ProfileParseFailed),
                 ));
@@ -120,7 +131,7 @@ impl Engine {
         let rendered = match profile.render(analysis.as_ref()) {
             Ok(rendered) => rendered,
             Err(_) => {
-                return Ok(failed_open(
+                return checked(failed_open(
                     observation.output.len(),
                     Some(DiagnosticCodeV1::ProfileParseFailed),
                 ));
@@ -134,14 +145,14 @@ impl Engine {
                     DiagnosticCodeV1::ProfileParseFailed
                 }
             };
-            return Ok(failed_open(observation.output.len(), Some(diagnostic)));
+            return checked(failed_open(observation.output.len(), Some(diagnostic)));
         }
 
         if rendered.len() >= safe_baseline.len() {
-            return Ok(FilterResultV1::passthrough(observation.output.len()));
+            return checked(FilterResultV1::passthrough(observation.output.len()));
         }
 
-        Ok(reduced(observation.output.len(), rendered, profile.id()))
+        checked(reduced(observation.output.len(), rendered, profile.id()))
     }
 }
 
@@ -183,4 +194,9 @@ fn reduced(input_bytes: usize, replacement: String, profile: &'static str) -> Fi
 
 fn to_u64(value: usize) -> u64 {
     u64::try_from(value).unwrap_or(u64::MAX)
+}
+
+fn checked(result: FilterResultV1) -> Result<FilterResultV1, ProtocolError> {
+    result.validate()?;
+    Ok(result)
 }
