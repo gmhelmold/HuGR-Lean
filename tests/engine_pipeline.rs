@@ -3,9 +3,10 @@ use hugr_lean::engine::{
     Engine, EngineConfig, EngineConfigError, DEFAULT_MAX_INPUT_BYTES, HARD_MAX_INPUT_BYTES,
     MIN_INPUT_BYTES,
 };
+use hugr_lean::preservation::{LeanWriter, PreservationContract, RenderedOutput};
 use hugr_lean::profile::{
-    CompletenessRequirement, Profile, ProfileAnalysis, ProfileContext, ProfileError, ProfileMatch,
-    ProfileRequirements, RouteContext, TerminationRequirement,
+    AnalysisBundle, CompletenessRequirement, Profile, ProfileAnalysis, ProfileContext,
+    ProfileError, ProfileMatch, ProfileRequirements, RouteContext, TerminationRequirement,
 };
 use hugr_lean::protocol::{
     CompletenessV1, DecisionV1, DiagnosticCodeV1, ObservationV1, PresentationV1, ShellDialectV1,
@@ -14,7 +15,7 @@ use hugr_lean::protocol::{
 
 #[derive(Debug)]
 struct TestAnalysis {
-    rendered: String,
+    rendered: &'static str,
     valid: bool,
 }
 
@@ -62,21 +63,25 @@ impl Profile for TestProfile {
         }
     }
 
-    fn analyze(
-        &self,
-        _context: &ProfileContext<'_>,
-    ) -> Result<Box<dyn ProfileAnalysis>, ProfileError> {
+    fn analyze(&self, _context: &ProfileContext<'_>) -> Result<AnalysisBundle, ProfileError> {
         if self.analyze_error {
             return Err(ProfileError::analyze());
         }
 
-        Ok(Box::new(TestAnalysis {
-            rendered: self.rendered.to_owned(),
-            valid: self.valid,
-        }))
+        Ok(AnalysisBundle::new(
+            Box::new(TestAnalysis {
+                rendered: self.rendered,
+                valid: self.valid,
+            }),
+            PreservationContract::default(),
+        ))
     }
 
-    fn render(&self, analysis: &dyn ProfileAnalysis) -> Result<String, ProfileError> {
+    fn render(
+        &self,
+        analysis: &dyn ProfileAnalysis,
+        writer: &mut LeanWriter,
+    ) -> Result<(), ProfileError> {
         if self.render_error {
             return Err(ProfileError::render());
         }
@@ -85,16 +90,21 @@ impl Profile for TestProfile {
             .as_any()
             .downcast_ref::<TestAnalysis>()
             .ok_or_else(ProfileError::render)?;
-        Ok(analysis.rendered.clone())
+        writer.static_text(analysis.rendered);
+        Ok(())
     }
 
-    fn validate(&self, analysis: &dyn ProfileAnalysis, rendered: &str) -> Result<(), ProfileError> {
+    fn validate(
+        &self,
+        analysis: &dyn ProfileAnalysis,
+        rendered: &RenderedOutput,
+    ) -> Result<(), ProfileError> {
         let analysis = analysis
             .as_any()
             .downcast_ref::<TestAnalysis>()
             .ok_or_else(ProfileError::validate)?;
 
-        if !analysis.valid || rendered != analysis.rendered {
+        if !analysis.valid || rendered.text() != analysis.rendered {
             return Err(ProfileError::validate());
         }
 
@@ -254,29 +264,26 @@ impl Profile for ShapeOnlyProfile {
         }
     }
 
-    fn analyze(
-        &self,
-        _context: &ProfileContext<'_>,
-    ) -> Result<Box<dyn ProfileAnalysis>, ProfileError> {
-        Ok(Box::new(TestAnalysis {
-            rendered: "x".to_owned(),
-            valid: true,
-        }))
+    fn analyze(&self, _context: &ProfileContext<'_>) -> Result<AnalysisBundle, ProfileError> {
+        Ok(AnalysisBundle::new(
+            Box::new(TestAnalysis {
+                rendered: "x",
+                valid: true,
+            }),
+            PreservationContract::default(),
+        ))
     }
 
-    fn render(&self, analysis: &dyn ProfileAnalysis) -> Result<String, ProfileError> {
+    fn render(
+        &self,
+        analysis: &dyn ProfileAnalysis,
+        writer: &mut LeanWriter,
+    ) -> Result<(), ProfileError> {
         let analysis = analysis
             .as_any()
             .downcast_ref::<TestAnalysis>()
             .ok_or_else(ProfileError::render)?;
-        Ok(analysis.rendered.clone())
-    }
-
-    fn validate(
-        &self,
-        _analysis: &dyn ProfileAnalysis,
-        _rendered: &str,
-    ) -> Result<(), ProfileError> {
+        writer.static_text(analysis.rendered);
         Ok(())
     }
 }

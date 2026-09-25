@@ -6,6 +6,7 @@
 use std::any::Any;
 
 use crate::command::InvocationIdentity;
+use crate::preservation::{LeanWriter, PreservationContract, RenderedOutput};
 use crate::protocol::{CompletenessV1, ObservationV1, TerminationKindV1};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,6 +78,25 @@ pub struct ProfileContext<'a> {
     pub safe_baseline: &'a str,
 }
 
+pub struct AnalysisBundle {
+    data: Box<dyn ProfileAnalysis>,
+    preservation: PreservationContract,
+}
+
+impl AnalysisBundle {
+    pub fn new(data: Box<dyn ProfileAnalysis>, preservation: PreservationContract) -> Self {
+        Self { data, preservation }
+    }
+
+    pub fn data(&self) -> &dyn ProfileAnalysis {
+        self.data.as_ref()
+    }
+
+    pub fn preservation(&self) -> &PreservationContract {
+        &self.preservation
+    }
+}
+
 /// Type-erased analysis value owned by one profile.
 ///
 /// The engine never inspects this payload. Profiles can retain typed analysis
@@ -143,12 +163,19 @@ pub trait Profile: Send + Sync {
         ProfileMatch::Match
     }
 
-    fn analyze(
+    fn analyze(&self, context: &ProfileContext<'_>) -> Result<AnalysisBundle, ProfileError>;
+
+    fn render(
         &self,
-        context: &ProfileContext<'_>,
-    ) -> Result<Box<dyn ProfileAnalysis>, ProfileError>;
+        analysis: &dyn ProfileAnalysis,
+        writer: &mut LeanWriter,
+    ) -> Result<(), ProfileError>;
 
-    fn render(&self, analysis: &dyn ProfileAnalysis) -> Result<String, ProfileError>;
-
-    fn validate(&self, analysis: &dyn ProfileAnalysis, rendered: &str) -> Result<(), ProfileError>;
+    fn validate(
+        &self,
+        _analysis: &dyn ProfileAnalysis,
+        _rendered: &RenderedOutput,
+    ) -> Result<(), ProfileError> {
+        Ok(())
+    }
 }

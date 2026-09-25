@@ -6,6 +6,7 @@
 
 pub mod command;
 pub mod engine;
+pub mod preservation;
 pub mod profile;
 pub mod protocol;
 
