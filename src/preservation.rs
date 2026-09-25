@@ -104,7 +104,7 @@ pub struct Signal {
 }
 
 impl Signal {
-    pub fn verbatim(id: SignalId, input: &str, span: ByteSpan) -> Result<Self, EvidenceError> {
+    pub(crate) fn verbatim(id: SignalId, input: &str, span: ByteSpan) -> Result<Self, EvidenceError> {
         let text = span.extract(input)?.to_owned();
         Ok(Self {
             id,
@@ -113,7 +113,7 @@ impl Signal {
         })
     }
 
-    pub fn canonicalized(
+    pub(crate) fn canonicalized(
         id: SignalId,
         input: &str,
         span: ByteSpan,
@@ -133,7 +133,7 @@ impl Signal {
         })
     }
 
-    pub fn from_outcome(
+    pub(crate) fn from_outcome(
         id: SignalId,
         field: OutcomeField,
         observation: &ObservationV1,
@@ -174,7 +174,7 @@ impl Signal {
         })
     }
 
-    pub fn derived_count(
+    pub(crate) fn derived_count(
         id: SignalId,
         rule_id: &'static str,
         input: &str,
@@ -216,7 +216,7 @@ pub struct DerivedEvidence {
 }
 
 impl DerivedEvidence {
-    pub fn count(
+    pub(crate) fn count(
         rule_id: &'static str,
         input: &str,
         source_spans: Vec<ByteSpan>,
