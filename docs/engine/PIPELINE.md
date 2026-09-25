@@ -191,9 +191,9 @@ candidate_bytes < safe_baseline_bytes
 
 Equal-size output is not considered a reduction.
 
-A larger or equal candidate is discarded and the safe baseline wins.
+A larger or equal profile candidate is discarded and the validated safe baseline wins.
 
-In WP1.3 the baseline is the original boundary output, so that result is passthrough.
+If SafeNormalization changed the boundary output, that fallback is emitted as `normalized`. Otherwise it remains passthrough.
 
 ## Metrics
 
