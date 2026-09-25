@@ -164,6 +164,42 @@ fn derived_evidence_rejects_empty_provenance() {
     );
 }
 
+
+#[test]
+fn derived_count_rejects_duplicate_overlapping_or_unordered_spans() {
+    let input = "one two three";
+
+    assert_eq!(
+        DerivedEvidence::count(
+            "count",
+            input,
+            vec![ByteSpan::new(0, 3), ByteSpan::new(0, 3)],
+            "items",
+        ),
+        Err(EvidenceError::NonMonotonicSourceSpans)
+    );
+
+    assert_eq!(
+        DerivedEvidence::count(
+            "count",
+            input,
+            vec![ByteSpan::new(0, 7), ByteSpan::new(4, 7)],
+            "items",
+        ),
+        Err(EvidenceError::NonMonotonicSourceSpans)
+    );
+
+    assert_eq!(
+        DerivedEvidence::count(
+            "count",
+            input,
+            vec![ByteSpan::new(8, 13), ByteSpan::new(0, 3)],
+            "items",
+        ),
+        Err(EvidenceError::NonMonotonicSourceSpans)
+    );
+}
+
 #[test]
 fn lean_writer_records_signals_and_derived_provenance() {
     let input = "FAIL one\nFAIL two\n";
