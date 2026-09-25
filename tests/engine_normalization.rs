@@ -128,8 +128,7 @@ fn unknown_presentation_keeps_ansi_like_bytes_exact() {
 
 #[test]
 fn engine_composes_sgr_then_redraw() {
-    let input =
-        "\u{1b}[31m9%\u{1b}[0m\r\u{1b}[33m10%\u{1b}[0m\r\u{1b}[32m100%\u{1b}[0m\n";
+    let input = "\u{1b}[31m9%\u{1b}[0m\r\u{1b}[33m10%\u{1b}[0m\r\u{1b}[32m100%\u{1b}[0m\n";
     let result = Engine::default()
         .process(observation(PresentationV1::TerminalRendered, None, input))
         .unwrap();
@@ -237,11 +236,7 @@ fn profile_failure_after_normalization_fails_open_to_original() {
 fn effective_output_is_idempotent_after_normalization() {
     let input = "\u{1b}[31mred\u{1b}[0m";
     let first = Engine::default()
-        .process(observation(
-            PresentationV1::TerminalRendered,
-            None,
-            input,
-        ))
+        .process(observation(PresentationV1::TerminalRendered, None, input))
         .unwrap();
     let effective = first.replacement.as_deref().unwrap_or(input);
 
