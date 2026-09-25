@@ -4,7 +4,8 @@ use hugr_lean::preservation::{
     ByteSpan, LeanWriter, OutcomeField, PreservationContract, RenderedOutput, Signal, SignalId,
 };
 use hugr_lean::profile::{
-    AnalysisBundle, Profile, ProfileAnalysis, ProfileContext, ProfileError, ProfileMatch,
+    AnalysisBundle, BoundaryAssumption, Profile, ProfileAnalysis, ProfileContext,
+    ProfileDescriptor, ProfileError, ProfileMatch,
 };
 use hugr_lean::protocol::{
     CompletenessV1, DecisionV1, DiagnosticCodeV1, ObservationV1, PresentationV1, ShellDialectV1,
@@ -38,8 +39,13 @@ struct EvidenceProfile {
 }
 
 impl Profile for EvidenceProfile {
-    fn id(&self) -> &'static str {
-        "evidence-profile"
+    fn descriptor(&self) -> ProfileDescriptor {
+        ProfileDescriptor::new(
+            "evidence-profile",
+            "test",
+            "preservation-contract",
+            BoundaryAssumption::NativeText,
+        )
     }
 
     fn recognize(&self, identity: &InvocationIdentity) -> ProfileMatch {
@@ -144,8 +150,13 @@ struct OutcomeAnalysis {
 struct OutcomeProfile;
 
 impl Profile for OutcomeProfile {
-    fn id(&self) -> &'static str {
-        "outcome-profile"
+    fn descriptor(&self) -> ProfileDescriptor {
+        ProfileDescriptor::new(
+            "outcome-profile",
+            "test",
+            "preservation-contract",
+            BoundaryAssumption::NativeText,
+        )
     }
 
     fn recognize(&self, identity: &InvocationIdentity) -> ProfileMatch {
@@ -203,8 +214,13 @@ struct CountAnalysis {
 struct CountProfile;
 
 impl Profile for CountProfile {
-    fn id(&self) -> &'static str {
-        "count-profile"
+    fn descriptor(&self) -> ProfileDescriptor {
+        ProfileDescriptor::new(
+            "count-profile",
+            "test",
+            "preservation-contract",
+            BoundaryAssumption::NativeText,
+        )
     }
 
     fn recognize(&self, identity: &InvocationIdentity) -> ProfileMatch {
