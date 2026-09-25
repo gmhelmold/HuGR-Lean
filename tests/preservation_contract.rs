@@ -123,7 +123,8 @@ fn derived_count_is_mechanical_and_traceable_to_source_spans() {
         ByteSpan::new("FAIL one\n".len(), "FAIL one\nFAIL two".len()),
     ];
 
-    let derived = DerivedEvidence::count("count_failures", input, spans.clone(), "failures").unwrap();
+    let derived =
+        DerivedEvidence::count("count_failures", input, spans.clone(), "failures").unwrap();
 
     assert_eq!(derived.rendered_text(), "2 failures");
     assert_eq!(derived.rule_id(), "count_failures");
@@ -138,14 +139,9 @@ fn derived_signal_records_rule_and_source_spans() {
         ByteSpan::new("FAIL one\n".len(), "FAIL one\nFAIL two".len()),
     ];
 
-    let signal = Signal::derived_count(
-        COUNT_ID,
-        "count_failures",
-        input,
-        spans.clone(),
-        "failures",
-    )
-    .unwrap();
+    let signal =
+        Signal::derived_count(COUNT_ID, "count_failures", input, spans.clone(), "failures")
+            .unwrap();
 
     assert_eq!(signal.canonical_text(), "2 failures");
     assert_eq!(
@@ -172,12 +168,7 @@ fn derived_evidence_rejects_empty_provenance() {
 #[test]
 fn lean_writer_records_signals_and_derived_provenance() {
     let input = "FAIL one\nFAIL two\n";
-    let signal = Signal::verbatim(
-        FAILURE_ID,
-        input,
-        ByteSpan::new(0, "FAIL one".len()),
-    )
-    .unwrap();
+    let signal = Signal::verbatim(FAILURE_ID, input, ByteSpan::new(0, "FAIL one".len())).unwrap();
     let derived = DerivedEvidence::count(
         "count_failures",
         input,
