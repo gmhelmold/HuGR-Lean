@@ -112,7 +112,6 @@ fn proving_profile_is_not_registered_by_default() {
     assert!(error.to_string().contains("expected decision Reduced"));
 }
 
-
 #[test]
 fn normalization_kind_requires_normalization_metadata() {
     let invalid = r#"
