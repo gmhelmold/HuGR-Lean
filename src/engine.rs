@@ -124,12 +124,13 @@ impl Engine {
             safe_baseline,
         };
 
-        let mut matches = self.profiles.iter().filter(|profile| {
+        let mut matches = self.profiles.iter().filter(|registered| {
+            let profile = registered.profile();
             profile.recognize(&identity) == ProfileMatch::Match
                 && profile.shape_guard(&route_context) == ProfileMatch::Match
         });
 
-        let Some(profile) = matches.next() else {
+        let Some(registered) = matches.next() else {
             return checked(baseline_result(observation.output.len(), &normalization));
         };
 
@@ -139,6 +140,9 @@ impl Engine {
                 Some(DiagnosticCodeV1::AmbiguousProfile),
             ));
         }
+
+        let profile = registered.profile();
+        let descriptor = registered.descriptor();
 
         if let Err(failure) = profile.requirements().check(&observation) {
             let diagnostic = match failure {
@@ -208,7 +212,7 @@ impl Engine {
         checked(reduced(
             observation.output.len(),
             rendered.into_text(),
-            profile.id(),
+            descriptor.id(),
         ))
     }
 }
