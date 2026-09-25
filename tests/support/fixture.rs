@@ -146,15 +146,7 @@ impl LoadedFixture {
         let case_text = read(&root.join("case.toml"))?;
         let case = parse_case_toml(&case_text)?;
 
-        if case.schema != 1 {
-            return Err(HarnessError::new(format!(
-                "fixture {} uses unsupported schema {}",
-                case.id, case.schema
-            )));
-        }
-        if case.id.is_empty() {
-            return Err(HarnessError::new("fixture id must not be empty"));
-        }
+        validate_fixture_case(&case)?;
 
         let directory_id = root
             .file_name()
@@ -166,11 +158,6 @@ impl LoadedFixture {
                 case.id, directory_id
             )));
         }
-
-        validate_kind_and_provenance(&case)?;
-        validate_normalization_metadata(&case)?;
-        validate_provenance(&case)?;
-        validate_preservation_metadata(&case)?;
 
         let input = read(&root.join("input.txt"))?;
         let expected = match &case.expect.golden {
@@ -217,6 +204,24 @@ impl LoadedFixture {
 pub fn parse_case_toml(input: &str) -> Result<FixtureCase, HarnessError> {
     toml::from_str(input)
         .map_err(|error| HarnessError::new(format!("invalid fixture TOML: {error}")))
+}
+
+
+pub fn validate_fixture_case(case: &FixtureCase) -> Result<(), HarnessError> {
+    if case.schema != 1 {
+        return Err(HarnessError::new(format!(
+            "fixture {} uses unsupported schema {}",
+            case.id, case.schema
+        )));
+    }
+    if case.id.is_empty() {
+        return Err(HarnessError::new("fixture id must not be empty"));
+    }
+
+    validate_kind_and_provenance(case)?;
+    validate_normalization_metadata(case)?;
+    validate_provenance(case)?;
+    validate_preservation_metadata(case)
 }
 
 pub fn verify_fixture(engine: &Engine, fixture: &LoadedFixture) -> Result<(), HarnessError> {
