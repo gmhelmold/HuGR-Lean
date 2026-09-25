@@ -55,9 +55,15 @@ source_path = ""
 license = ""
 origin_issue = 0
 notes = ""
+
+# Required only when kind = "normalization"
+[normalization]
+primitive = "strip_sgr" # strip_sgr | collapse_carriage_redraws
 ~~~
 
 The Rust verification harness implements this metadata contract in `tests/support/fixture.rs`.
+
+For `kind = "normalization"`, the `[normalization]` section is mandatory. For every other fixture kind it is forbidden. Normalization fixtures execute one primitive in isolation; engine composition remains a separate verification layer.
 
 Fixture TOML is intentionally distinct from the Protocol V1 JSON wire representation. The loader maps this compact metadata into `ObservationV1`, then runs the real engine.
 
@@ -66,6 +72,15 @@ Fixture TOML is intentionally distinct from the Protocol V1 JSON wire representa
 ### Observation
 
 Fixture metadata describes the exact HuGR-Lean boundary observation. It must not pretend to know pre-host bytes that were never captured.
+
+### Normalization primitive
+
+Normalization fixtures currently admit only:
+
+- `strip_sgr`;
+- `collapse_carriage_redraws`.
+
+The fixture runner first applies the normal applicability gate. If `presentation != terminal_rendered`, effective output remains exact input even if the selected primitive would otherwise recognize the bytes.
 
 ### Exact golden outputs
 
