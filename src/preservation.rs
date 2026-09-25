@@ -383,9 +383,19 @@ impl LeanWriter {
         self.text.push_str(text);
     }
 
+    pub fn static_line(&mut self, text: &'static str) {
+        self.static_text(text);
+        self.newline();
+    }
+
     pub fn signal(&mut self, signal: &Signal) {
         self.text.push_str(signal.canonical_text());
         self.emitted_signal_ids.insert(signal.id());
+    }
+
+    pub fn signal_line(&mut self, signal: &Signal) {
+        self.signal(signal);
+        self.newline();
     }
 
     pub fn derived(&mut self, evidence: &DerivedEvidence) {
@@ -394,6 +404,11 @@ impl LeanWriter {
             rule_id: evidence.rule_id(),
             source_spans: evidence.source_spans().to_vec(),
         });
+    }
+
+    pub fn derived_line(&mut self, evidence: &DerivedEvidence) {
+        self.derived(evidence);
+        self.newline();
     }
 
     pub fn newline(&mut self) {
@@ -707,6 +722,30 @@ mod tests {
         assert_eq!(output.derived_records().len(), 1);
         assert_eq!(output.derived_records()[0].rule_id(), "count_failures");
         assert_eq!(output.derived_records()[0].source_spans().len(), 2);
+    }
+
+    #[test]
+    fn common_writer_line_patterns_preserve_provenance_tracking() {
+        let input = "ERROR";
+        let signal = Signal::verbatim(FAILURE_ID, input, ByteSpan::new(0, input.len())).unwrap();
+        let derived = DerivedEvidence::count(
+            "count_errors",
+            input,
+            vec![ByteSpan::new(0, input.len())],
+            "errors",
+        )
+        .unwrap();
+
+        let mut writer = LeanWriter::new();
+        writer.static_line("summary:");
+        writer.signal_line(&signal);
+        writer.derived_line(&derived);
+        let output = writer.finish();
+
+        assert_eq!(output.text(), "summary:\nERROR\n1 errors\n");
+        assert!(output.emitted_signal_ids().contains(&FAILURE_ID));
+        assert_eq!(output.derived_records().len(), 1);
+        assert_eq!(output.derived_records()[0].rule_id(), "count_errors");
     }
 
     #[test]

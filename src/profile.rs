@@ -1,9 +1,11 @@
-//! Minimal profile contract used by the core routing pipeline.
+//! Stable profile framework for deterministic post-execution reducers.
 //!
-//! WP1.3 keeps the contract deliberately small. Concrete preservation evidence
-//! and LeanWriter semantics are introduced by WP1.4 without changing routing.
+//! Every profile declares a small descriptor, input requirements, identity
+//! recognition, optional shape guard, deterministic analysis, evidence-backed
+//! rendering, and optional final validation.
 
 use std::any::Any;
+use std::collections::BTreeSet;
 
 use crate::command::InvocationIdentity;
 use crate::preservation::{LeanWriter, PreservationContract, RenderedOutput};
@@ -67,6 +69,189 @@ pub enum RequirementFailure {
     TerminationNotExited,
 }
 
+/// Declares what shape of boundary input a profile implementation consumes.
+///
+/// RewriteDependent exists only so donor-derived implementations can be
+/// rejected explicitly. HuGR-Lean v1 never executes a profile with that
+/// assumption.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BoundaryAssumption {
+    NativeText,
+    StructuredText,
+    RewriteDependent,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProfileDescriptor {
+    id: &'static str,
+    family: &'static str,
+    fixture_family: &'static str,
+    boundary_assumption: BoundaryAssumption,
+}
+
+impl ProfileDescriptor {
+    pub const fn new(
+        id: &'static str,
+        family: &'static str,
+        fixture_family: &'static str,
+        boundary_assumption: BoundaryAssumption,
+    ) -> Self {
+        Self {
+            id,
+            family,
+            fixture_family,
+            boundary_assumption,
+        }
+    }
+
+    pub const fn id(self) -> &'static str {
+        self.id
+    }
+
+    pub const fn family(self) -> &'static str {
+        self.family
+    }
+
+    pub const fn fixture_family(self) -> &'static str {
+        self.fixture_family
+    }
+
+    pub const fn boundary_assumption(self) -> BoundaryAssumption {
+        self.boundary_assumption
+    }
+
+    fn validate(self) -> Result<(), ProfileRegistryError> {
+        validate_component(self.id)
+            .map_err(|_| ProfileRegistryError::InvalidProfileId { id: self.id })?;
+        validate_component(self.family).map_err(|_| ProfileRegistryError::InvalidFamily {
+            id: self.id,
+            family: self.family,
+        })?;
+        validate_component(self.fixture_family).map_err(|_| {
+            ProfileRegistryError::InvalidFixtureFamily {
+                id: self.id,
+                fixture_family: self.fixture_family,
+            }
+        })?;
+
+        if self.boundary_assumption == BoundaryAssumption::RewriteDependent {
+            return Err(ProfileRegistryError::RewriteDependent { id: self.id });
+        }
+
+        Ok(())
+    }
+}
+
+fn validate_component(value: &str) -> Result<(), ()> {
+    let mut bytes = value.bytes();
+    let Some(first) = bytes.next() else {
+        return Err(());
+    };
+
+    if !first.is_ascii_lowercase() && !first.is_ascii_digit() {
+        return Err(());
+    }
+
+    if bytes.all(|byte| {
+        byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_' | b'.')
+    }) {
+        Ok(())
+    } else {
+        Err(())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProfileRegistryError {
+    InvalidProfileId {
+        id: &'static str,
+    },
+    InvalidFamily {
+        id: &'static str,
+        family: &'static str,
+    },
+    InvalidFixtureFamily {
+        id: &'static str,
+        fixture_family: &'static str,
+    },
+    DuplicateProfileId {
+        id: &'static str,
+    },
+    RewriteDependent {
+        id: &'static str,
+    },
+}
+
+pub struct RegisteredProfile {
+    descriptor: ProfileDescriptor,
+    profile: Box<dyn Profile>,
+}
+
+impl RegisteredProfile {
+    pub const fn descriptor(&self) -> ProfileDescriptor {
+        self.descriptor
+    }
+
+    pub fn profile(&self) -> &dyn Profile {
+        self.profile.as_ref()
+    }
+}
+
+pub struct ProfileRegistry {
+    profiles: Vec<RegisteredProfile>,
+}
+
+impl Default for ProfileRegistry {
+    fn default() -> Self {
+        Self::empty()
+    }
+}
+
+impl ProfileRegistry {
+    pub fn empty() -> Self {
+        Self {
+            profiles: Vec::new(),
+        }
+    }
+
+    pub fn new(profiles: Vec<Box<dyn Profile>>) -> Result<Self, ProfileRegistryError> {
+        let mut ids = BTreeSet::new();
+        let mut registered = Vec::with_capacity(profiles.len());
+
+        for profile in profiles {
+            let descriptor = profile.descriptor();
+            descriptor.validate()?;
+
+            if !ids.insert(descriptor.id()) {
+                return Err(ProfileRegistryError::DuplicateProfileId {
+                    id: descriptor.id(),
+                });
+            }
+
+            registered.push(RegisteredProfile {
+                descriptor,
+                profile,
+            });
+        }
+
+        Ok(Self {
+            profiles: registered,
+        })
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &RegisteredProfile> {
+        self.profiles.iter()
+    }
+
+    pub fn len(&self) -> usize {
+        self.profiles.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.profiles.is_empty()
+    }
+}
+
 pub struct RouteContext<'a> {
     pub observation: &'a ObservationV1,
     pub identity: &'a InvocationIdentity,
@@ -98,10 +283,6 @@ impl AnalysisBundle {
     }
 }
 
-/// Type-erased analysis value owned by one profile.
-///
-/// The engine never inspects this payload. Profiles can retain typed analysis
-/// without forcing a shared semantic schema into the core.
 pub trait ProfileAnalysis: Any + Send + Sync {
     fn as_any(&self) -> &dyn Any;
 }
@@ -148,18 +329,18 @@ impl ProfileError {
 }
 
 pub trait Profile: Send + Sync {
-    fn id(&self) -> &'static str;
+    fn descriptor(&self) -> ProfileDescriptor;
 
     fn requirements(&self) -> ProfileRequirements {
         ProfileRequirements::ANY
     }
 
-    /// First-stage recognition. This method receives invocation identity only,
-    /// so shell profiles cannot route solely from output resemblance.
+    /// First-stage recognition receives invocation identity only. Output
+    /// resemblance can never create a command identity.
     fn recognize(&self, identity: &InvocationIdentity) -> ProfileMatch;
 
-    /// Optional second-stage shape guard. The engine calls this only after
-    /// identity recognition has matched.
+    /// Optional second-stage shape guard. It can reject an identity match but
+    /// cannot create one.
     fn shape_guard(&self, _context: &RouteContext<'_>) -> ProfileMatch {
         ProfileMatch::Match
     }
@@ -178,5 +359,21 @@ pub trait Profile: Send + Sync {
         _rendered: &RenderedOutput,
     ) -> Result<(), ProfileError> {
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn descriptor_components_are_deliberately_narrow() {
+        for valid in ["cargo-test", "rust.cargo", "python_pytest", "v1"] {
+            assert_eq!(validate_component(valid), Ok(()));
+        }
+
+        for invalid in ["", "Cargo", "-cargo", "cargo/test", "cargo test", "café"] {
+            assert_eq!(validate_component(invalid), Err(()));
+        }
     }
 }

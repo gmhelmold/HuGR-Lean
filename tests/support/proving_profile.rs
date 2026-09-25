@@ -3,8 +3,8 @@ use hugr_lean::preservation::{
     ByteSpan, LeanWriter, PreservationContract, RenderedOutput, Signal, SignalId,
 };
 use hugr_lean::profile::{
-    AnalysisBundle, Profile, ProfileAnalysis, ProfileContext, ProfileError, ProfileMatch,
-    ProfileRequirements, RouteContext,
+    AnalysisBundle, BoundaryAssumption, Profile, ProfileAnalysis, ProfileContext,
+    ProfileDescriptor, ProfileError, ProfileMatch, ProfileRequirements, RouteContext,
 };
 
 pub const PROVING_PROFILE_ID: &str = "proving-profile";
@@ -18,8 +18,13 @@ struct ProvingAnalysis {
 }
 
 impl Profile for ProvingProfile {
-    fn id(&self) -> &'static str {
-        PROVING_PROFILE_ID
+    fn descriptor(&self) -> ProfileDescriptor {
+        ProfileDescriptor::new(
+            PROVING_PROFILE_ID,
+            "test",
+            "proving",
+            BoundaryAssumption::NativeText,
+        )
     }
 
     fn requirements(&self) -> ProfileRequirements {

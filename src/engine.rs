@@ -4,7 +4,8 @@ use crate::command::identify_invocation;
 use crate::normalize::{safe_normalize, SafeNormalizationError, SafeNormalizationOutcome};
 use crate::preservation::LeanWriter;
 use crate::profile::{
-    Profile, ProfileContext, ProfileMatch, ProfileStage, RequirementFailure, RouteContext,
+    Profile, ProfileContext, ProfileMatch, ProfileRegistry, ProfileRegistryError, ProfileStage,
+    RequirementFailure, RouteContext,
 };
 use crate::protocol::{
     DecisionV1, DiagnosticCodeV1, FilterResultV1, MetricsV1, ObservationV1, ProtocolError,
@@ -44,18 +45,37 @@ pub enum EngineConfigError {
     MaxInputBytesOutOfRange { received: usize },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EngineBuildError {
+    Config(EngineConfigError),
+    Registry(ProfileRegistryError),
+}
+
+impl From<EngineConfigError> for EngineBuildError {
+    fn from(error: EngineConfigError) -> Self {
+        Self::Config(error)
+    }
+}
+
+impl From<ProfileRegistryError> for EngineBuildError {
+    fn from(error: ProfileRegistryError) -> Self {
+        Self::Registry(error)
+    }
+}
+
 #[derive(Default)]
 pub struct Engine {
     config: EngineConfig,
-    profiles: Vec<Box<dyn Profile>>,
+    profiles: ProfileRegistry,
 }
 
 impl Engine {
     pub fn new(
         config: EngineConfig,
         profiles: Vec<Box<dyn Profile>>,
-    ) -> Result<Self, EngineConfigError> {
+    ) -> Result<Self, EngineBuildError> {
         config.validate()?;
+        let profiles = ProfileRegistry::new(profiles)?;
         Ok(Self { config, profiles })
     }
 
@@ -104,12 +124,13 @@ impl Engine {
             safe_baseline,
         };
 
-        let mut matches = self.profiles.iter().filter(|profile| {
+        let mut matches = self.profiles.iter().filter(|registered| {
+            let profile = registered.profile();
             profile.recognize(&identity) == ProfileMatch::Match
                 && profile.shape_guard(&route_context) == ProfileMatch::Match
         });
 
-        let Some(profile) = matches.next() else {
+        let Some(registered) = matches.next() else {
             return checked(baseline_result(observation.output.len(), &normalization));
         };
 
@@ -119,6 +140,9 @@ impl Engine {
                 Some(DiagnosticCodeV1::AmbiguousProfile),
             ));
         }
+
+        let profile = registered.profile();
+        let descriptor = registered.descriptor();
 
         if let Err(failure) = profile.requirements().check(&observation) {
             let diagnostic = match failure {
@@ -188,7 +212,7 @@ impl Engine {
         checked(reduced(
             observation.output.len(),
             rendered.into_text(),
-            profile.id(),
+            descriptor.id(),
         ))
     }
 }

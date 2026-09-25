@@ -5,8 +5,9 @@ use hugr_lean::engine::{
 };
 use hugr_lean::preservation::{LeanWriter, PreservationContract, RenderedOutput};
 use hugr_lean::profile::{
-    AnalysisBundle, CompletenessRequirement, Profile, ProfileAnalysis, ProfileContext,
-    ProfileError, ProfileMatch, ProfileRequirements, RouteContext, TerminationRequirement,
+    AnalysisBundle, BoundaryAssumption, CompletenessRequirement, Profile, ProfileAnalysis,
+    ProfileContext, ProfileDescriptor, ProfileError, ProfileMatch, ProfileRequirements,
+    RouteContext, TerminationRequirement,
 };
 use hugr_lean::protocol::{
     CompletenessV1, DecisionV1, DiagnosticCodeV1, ObservationV1, PresentationV1, ShellDialectV1,
@@ -44,8 +45,13 @@ impl TestProfile {
 }
 
 impl Profile for TestProfile {
-    fn id(&self) -> &'static str {
-        self.id
+    fn descriptor(&self) -> ProfileDescriptor {
+        ProfileDescriptor::new(
+            self.id,
+            "test",
+            "engine-pipeline",
+            BoundaryAssumption::NativeText,
+        )
     }
 
     fn requirements(&self) -> ProfileRequirements {
@@ -248,8 +254,13 @@ fn exited_requirement_distinguishes_known_non_exit_termination() {
 struct ShapeOnlyProfile;
 
 impl Profile for ShapeOnlyProfile {
-    fn id(&self) -> &'static str {
-        "shape-only"
+    fn descriptor(&self) -> ProfileDescriptor {
+        ProfileDescriptor::new(
+            "shape-only",
+            "test",
+            "engine-pipeline",
+            BoundaryAssumption::NativeText,
+        )
     }
 
     fn recognize(&self, _identity: &InvocationIdentity) -> ProfileMatch {

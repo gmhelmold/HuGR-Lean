@@ -4,8 +4,8 @@ use hugr_lean::preservation::{
     ByteSpan, LeanWriter, PreservationContract, RenderedOutput, Signal, SignalId,
 };
 use hugr_lean::profile::{
-    AnalysisBundle, Profile, ProfileAnalysis, ProfileContext, ProfileError, ProfileMatch,
-    RouteContext,
+    AnalysisBundle, BoundaryAssumption, Profile, ProfileAnalysis, ProfileContext,
+    ProfileDescriptor, ProfileError, ProfileMatch, RouteContext,
 };
 use hugr_lean::protocol::{
     CompletenessV1, DecisionV1, DiagnosticCodeV1, ObservationV1, PresentationV1, ShellDialectV1,
@@ -25,8 +25,13 @@ struct BaselineProfile {
 }
 
 impl Profile for BaselineProfile {
-    fn id(&self) -> &'static str {
-        "baseline-profile"
+    fn descriptor(&self) -> ProfileDescriptor {
+        ProfileDescriptor::new(
+            "baseline-profile",
+            "test",
+            "engine-normalization",
+            BoundaryAssumption::NativeText,
+        )
     }
 
     fn recognize(&self, identity: &InvocationIdentity) -> ProfileMatch {
@@ -187,8 +192,13 @@ struct NormalizedEvidenceAnalysis {
 struct NormalizedEvidenceProfile;
 
 impl Profile for NormalizedEvidenceProfile {
-    fn id(&self) -> &'static str {
-        "normalized-evidence"
+    fn descriptor(&self) -> ProfileDescriptor {
+        ProfileDescriptor::new(
+            "normalized-evidence",
+            "test",
+            "engine-normalization",
+            BoundaryAssumption::NativeText,
+        )
     }
 
     fn recognize(&self, identity: &InvocationIdentity) -> ProfileMatch {
