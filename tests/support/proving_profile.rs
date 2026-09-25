@@ -8,7 +8,8 @@ use hugr_lean::profile::{
 };
 
 pub const PROVING_PROFILE_ID: &str = "proving-profile";
-const PROOF_SIGNAL_ID: SignalId = SignalId::new("proof-signal");
+pub const PROOF_SIGNAL_NAME: &str = "proof-signal";
+const PROOF_SIGNAL_ID: SignalId = SignalId::new(PROOF_SIGNAL_NAME);
 
 pub struct ProvingProfile;
 
