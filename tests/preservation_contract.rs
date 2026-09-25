@@ -164,7 +164,6 @@ fn derived_evidence_rejects_empty_provenance() {
     );
 }
 
-
 #[test]
 fn derived_count_rejects_duplicate_overlapping_or_unordered_spans() {
     let input = "one two three";
