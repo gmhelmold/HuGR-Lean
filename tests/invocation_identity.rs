@@ -3,8 +3,8 @@ use hugr_lean::command::{
     InvocationIdentity,
 };
 use hugr_lean::protocol::{
-    CompletenessV1, ObservationV1, PresentationV1, ShellDialectV1, SourceV1,
-    TerminationV1, PROTOCOL_V1,
+    CompletenessV1, ObservationV1, PresentationV1, ShellDialectV1, SourceV1, TerminationV1,
+    PROTOCOL_V1,
 };
 
 fn shell_observation(command: Option<&str>, dialect: ShellDialectV1) -> ObservationV1 {
