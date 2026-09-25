@@ -46,6 +46,8 @@ This declaration is auditable metadata, not proof. Native/structured claims stil
 - duplicate profile IDs;
 - rewrite-dependent profiles.
 
+The registry snapshots the validated descriptor at admission; the engine never re-asks a profile for mutable metadata during routing/result generation.
+
 The registry has no priority, confidence score, best-match heuristic, or registration-order fallback.
 
 Runtime routing remains:
