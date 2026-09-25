@@ -23,18 +23,13 @@ fn e0_seed_fixtures_execute_against_default_engine() {
         "seed/incomplete-test-like",
     ] {
         let fixture = LoadedFixture::load(fixture_root(relative)).unwrap();
-        verify_fixture(&engine, &fixture)
-            .unwrap_or_else(|error| panic!("{relative}: {error}"));
+        verify_fixture(&engine, &fixture).unwrap_or_else(|error| panic!("{relative}: {error}"));
     }
 }
 
 #[test]
 fn proving_fixture_traverses_real_profile_pipeline() {
-    let engine = Engine::new(
-        EngineConfig::default(),
-        vec![Box::new(ProvingProfile)],
-    )
-    .unwrap();
+    let engine = Engine::new(EngineConfig::default(), vec![Box::new(ProvingProfile)]).unwrap();
     let fixture = LoadedFixture::load(fixture_root("proving/engine-path")).unwrap();
 
     verify_fixture(&engine, &fixture).unwrap();
