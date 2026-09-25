@@ -1,6 +1,7 @@
 //! Host-independent HuGR-Lean routing and fail-open pipeline.
 
 use crate::command::identify_invocation;
+use crate::preservation::LeanWriter;
 use crate::profile::{
     Profile, ProfileContext, ProfileMatch, ProfileStage, RequirementFailure, RouteContext,
 };
@@ -128,17 +129,23 @@ impl Engine {
             }
         };
 
-        let rendered = match profile.render(analysis.as_ref()) {
-            Ok(rendered) => rendered,
-            Err(_) => {
-                return checked(failed_open(
-                    observation.output.len(),
-                    Some(DiagnosticCodeV1::ProfileParseFailed),
-                ));
-            }
-        };
+        let mut writer = LeanWriter::new();
+        if profile.render(analysis.data(), &mut writer).is_err() {
+            return checked(failed_open(
+                observation.output.len(),
+                Some(DiagnosticCodeV1::ProfileParseFailed),
+            ));
+        }
+        let rendered = writer.finish();
 
-        if let Err(error) = profile.validate(analysis.as_ref(), &rendered) {
+        if analysis.preservation().validate(&rendered).is_err() {
+            return checked(failed_open(
+                observation.output.len(),
+                Some(DiagnosticCodeV1::PreservationFailed),
+            ));
+        }
+
+        if let Err(error) = profile.validate(analysis.data(), &rendered) {
             let diagnostic = match error.stage {
                 ProfileStage::Validate => DiagnosticCodeV1::PreservationFailed,
                 ProfileStage::Analyze | ProfileStage::Render => {
@@ -148,11 +155,15 @@ impl Engine {
             return checked(failed_open(observation.output.len(), Some(diagnostic)));
         }
 
-        if rendered.len() >= safe_baseline.len() {
+        if rendered.text().len() >= safe_baseline.len() {
             return checked(FilterResultV1::passthrough(observation.output.len()));
         }
 
-        checked(reduced(observation.output.len(), rendered, profile.id()))
+        checked(reduced(
+            observation.output.len(),
+            rendered.into_text(),
+            profile.id(),
+        ))
     }
 }
 
