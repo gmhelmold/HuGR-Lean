@@ -142,9 +142,5 @@ pub trait Profile: Send + Sync {
 
     fn render(&self, analysis: &dyn ProfileAnalysis) -> Result<String, ProfileError>;
 
-    fn validate(
-        &self,
-        analysis: &dyn ProfileAnalysis,
-        rendered: &str,
-    ) -> Result<(), ProfileError>;
+    fn validate(&self, analysis: &dyn ProfileAnalysis, rendered: &str) -> Result<(), ProfileError>;
 }
