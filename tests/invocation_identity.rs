@@ -93,11 +93,8 @@ fn missing_shell_command_is_complex_or_unknown() {
 }
 
 #[test]
-fn unknown_dialect_does_not_strip_posix_env_assignments() {
-    let identity = direct("FOO=bar cargo test", ShellDialectV1::Unknown);
-    assert_eq!(identity.executable, "FOO=bar");
-    assert_eq!(identity.program, "FOO=bar");
-    assert_eq!(identity.args, ["cargo", "test"]);
+fn unknown_dialect_does_not_interpret_posix_env_assignments() {
+    assert_complex("FOO=bar cargo test", ShellDialectV1::Unknown);
 }
 
 #[test]
@@ -216,7 +213,9 @@ fn empty_or_only_whitespace_command_is_unknown() {
 }
 
 #[test]
-fn dot_paths_are_not_executable_identities() {
+fn invalid_executable_tokens_are_not_identities() {
     assert_complex(".", ShellDialectV1::Unknown);
     assert_complex("..", ShellDialectV1::Unknown);
+    assert_complex("FOO=bar", ShellDialectV1::Unknown);
+    assert_complex("/usr/bin/", ShellDialectV1::Unknown);
 }
