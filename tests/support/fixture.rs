@@ -200,7 +200,8 @@ impl LoadedFixture {
 }
 
 pub fn parse_case_toml(input: &str) -> Result<FixtureCase, HarnessError> {
-    toml::from_str(input).map_err(|error| HarnessError::new(format!("invalid fixture TOML: {error}")))
+    toml::from_str(input)
+        .map_err(|error| HarnessError::new(format!("invalid fixture TOML: {error}")))
 }
 
 pub fn verify_fixture(engine: &Engine, fixture: &LoadedFixture) -> Result<(), HarnessError> {
