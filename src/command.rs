@@ -124,7 +124,8 @@ fn is_posix_name(name: &str) -> bool {
 /// shell quoting, expansion, substitution, grouping, globbing, redirection, or
 /// command chaining is rejected rather than interpreted.
 fn is_portable_executable_token(token: &str) -> bool {
-    !token.ends_with(['/', '\\'])
+    !token.ends_with('/')
+        && !token.ends_with('\\')
         && is_portable_bare_token(token)
         && !token.contains('=')
 }
@@ -142,7 +143,7 @@ fn is_portable_bare_token(token: &str) -> bool {
 
 fn lexical_program_name(executable: &str) -> &str {
     executable
-        .rsplit(['/', '\\'])
+        .rsplit(|ch| ch == '/' || ch == '\\')
         .find(|segment| !segment.is_empty())
         .unwrap_or("")
 }
