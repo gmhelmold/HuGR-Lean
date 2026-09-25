@@ -406,6 +406,11 @@ impl LeanWriter {
         });
     }
 
+    pub fn derived_line(&mut self, evidence: &DerivedEvidence) {
+        self.derived(evidence);
+        self.newline();
+    }
+
     pub fn newline(&mut self) {
         self.text.push('\n');
     }
