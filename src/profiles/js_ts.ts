@@ -302,6 +302,9 @@ function hasUnsupportedTscMode(args: readonly string[]): boolean {
 }
 
 function parseJest(input: string): ParsedTestRunner | null {
+  if (input.includes("\u001b")) {
+    return null;
+  }
   const lines = lineRecords(input);
   const suiteSummaryIndexes = exactTrimmedPrefixIndexes(lines, "Test Suites:");
   const testSummaryIndexes = exactTrimmedPrefixIndexes(lines, "Tests:");
@@ -355,7 +358,21 @@ function parseJest(input: string): ParsedTestRunner | null {
   const failureDetailCount = lines
     .slice(0, suiteSummaryIndex)
     .filter((line) => line.text.trimStart().startsWith("● ")).length;
-  if (failureDetailCount !== tests.failed) {
+  if (
+    failureDetailCount !== tests.failed ||
+    (suites.failed === 0) !== (tests.failed === 0)
+  ) {
+    return null;
+  }
+
+  const failureRanges = suiteHeaders
+    .map((header, index) => ({
+      header,
+      end: suiteHeaders[index + 1]?.index ?? suiteSummaryIndex,
+    }))
+    .filter((entry) => entry.header.kind === "fail");
+
+  if (!jestKnownNonFailureShape(lines, suiteSummaryIndex, testSummaryIndex, failureRanges)) {
     return null;
   }
 
@@ -385,6 +402,9 @@ function parseJest(input: string): ParsedTestRunner | null {
 }
 
 function parseVitest(input: string): ParsedTestRunner | null {
+  if (input.includes("\u001b")) {
+    return null;
+  }
   const lines = lineRecords(input);
   const fileSummaryIndexes = lines
     .map((line, index) =>
@@ -441,7 +461,21 @@ function parseVitest(input: string): ParsedTestRunner | null {
   const failedTestMarkers = lines
     .slice(0, fileSummaryIndex)
     .filter((line) => /^\s{3,}❯\s+/u.test(line.text)).length;
-  if (failedTestMarkers !== tests.failed) {
+  if (
+    failedTestMarkers !== tests.failed ||
+    (files.failed === 0) !== (tests.failed === 0)
+  ) {
+    return null;
+  }
+
+  const failureRanges = suiteHeaders
+    .map((header, index) => ({
+      header,
+      end: suiteHeaders[index + 1]?.index ?? fileSummaryIndex,
+    }))
+    .filter((entry) => entry.header.kind === "fail");
+
+  if (!vitestKnownNonFailureShape(lines, fileSummaryIndex, testSummaryIndex, failureRanges)) {
     return null;
   }
 
@@ -483,6 +517,7 @@ function parseTscDiagnostics(input: string): ByteSpan[] | null {
   const spans: ByteSpan[] = [];
   let parsedCount = 0;
   let declaredCount: number | null = null;
+  let inSummaryTable = false;
   let index = 0;
 
   while (index < lines.length) {
@@ -499,23 +534,24 @@ function parseTscDiagnostics(input: string): ByteSpan[] | null {
 
     const declared = /^Found (\d+) errors?(?: in .+)?\.?$/u.exec(trimmed);
     if (declared !== null) {
-      if (declaredCount !== null) {
+      if (declaredCount !== null || parsedCount === 0) {
         return null;
       }
       declaredCount = Number(declared[1]);
+      inSummaryTable = true;
       index += 1;
       continue;
     }
 
     if (
-      trimmed === "Errors  Files" ||
-      /^\d+\s+\S.*:\d+$/u.test(trimmed)
+      inSummaryTable &&
+      (trimmed === "Errors  Files" || /^\d+\s+\S.*:\d+$/u.test(trimmed))
     ) {
       index += 1;
       continue;
     }
 
-    if (!isTscDiagnosticStart(line.text)) {
+    if (inSummaryTable || !isTscDiagnosticStart(line.text)) {
       return null;
     }
 
@@ -565,6 +601,105 @@ function isTscDiagnosticStart(line: string): boolean {
   return (
     /^.+\(\d+,\d+\): error TS\d+: .+$/u.test(line) ||
     /^error TS\d+: .+$/u.test(line)
+  );
+}
+
+interface FailureRange {
+  readonly header: { readonly index: number; readonly kind: "pass" | "fail" | null };
+  readonly end: number;
+}
+
+function jestKnownNonFailureShape(
+  lines: readonly LineRecord[],
+  suiteSummaryIndex: number,
+  testSummaryIndex: number,
+  failureRanges: readonly FailureRange[],
+): boolean {
+  for (let index = 0; index < suiteSummaryIndex; index += 1) {
+    if (insideFailureRange(index, failureRanges)) {
+      continue;
+    }
+    const line = lines[index];
+    if (line === undefined) {
+      return false;
+    }
+    const trimmed = line.text.trimStart();
+    if (
+      line.text.length === 0 ||
+      jestSuiteKind(line.text) !== null ||
+      /^[✓✕○]\s+/u.test(trimmed)
+    ) {
+      continue;
+    }
+    return false;
+  }
+
+  for (let index = suiteSummaryIndex + 1; index < testSummaryIndex; index += 1) {
+    if (lines[index]?.text.trim().length !== 0) {
+      return false;
+    }
+  }
+
+  for (let index = testSummaryIndex + 1; index < lines.length; index += 1) {
+    const trimmed = lines[index]?.text.trim() ?? "";
+    if (
+      trimmed.length === 0 ||
+      trimmed.startsWith("Time:") ||
+      trimmed === "Ran all test suites."
+    ) {
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+function vitestKnownNonFailureShape(
+  lines: readonly LineRecord[],
+  fileSummaryIndex: number,
+  testSummaryIndex: number,
+  failureRanges: readonly FailureRange[],
+): boolean {
+  for (let index = 0; index < fileSummaryIndex; index += 1) {
+    if (insideFailureRange(index, failureRanges)) {
+      continue;
+    }
+    const line = lines[index];
+    if (line === undefined) {
+      return false;
+    }
+    if (line.text.length === 0 || vitestSuiteKind(line.text) !== null) {
+      continue;
+    }
+    return false;
+  }
+
+  for (let index = fileSummaryIndex + 1; index < testSummaryIndex; index += 1) {
+    if (lines[index]?.text.trim().length !== 0) {
+      return false;
+    }
+  }
+
+  for (let index = testSummaryIndex + 1; index < lines.length; index += 1) {
+    const trimmed = lines[index]?.text.trim() ?? "";
+    if (
+      trimmed.length === 0 ||
+      trimmed.startsWith("Start at") ||
+      trimmed.startsWith("Duration")
+    ) {
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
+function insideFailureRange(
+  index: number,
+  ranges: readonly FailureRange[],
+): boolean {
+  return ranges.some(
+    (range) => index >= range.header.index && index < range.end,
   );
 }
 
