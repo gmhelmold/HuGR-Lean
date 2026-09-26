@@ -250,3 +250,40 @@ test("oversized active input fails open", () => {
   assert.equal(result.decision, "failed_open");
   assert.deepEqual(result.diagnostics, ["input_too_large"]);
 });
+
+
+test("invalid JavaScript profile requirements fail open", () => {
+  const profile: Profile = {
+    descriptor() {
+      return {
+        id: "bad-requirements",
+        family: "test",
+        fixture_family: "engine",
+        boundary_assumption: "native_text",
+      };
+    },
+    requirements() {
+      return {
+        completeness: "whatever",
+        termination: "any",
+      } as unknown as ProfileRequirements;
+    },
+    recognize(identity) {
+      return identity.kind === "shell" &&
+        identity.recognition.kind === "direct" &&
+        identity.recognition.identity.program === "cargo"
+        ? "match"
+        : "no_match";
+    },
+    analyze() {
+      return { data: null, preservation: new PreservationContract() };
+    },
+    render(_analysis, writer) {
+      writer.literal`ok`;
+    },
+  };
+
+  const result = new Engine(undefined, [profile]).process(observation("noisy"));
+  assert.equal(result.decision, "failed_open");
+  assert.deepEqual(result.diagnostics, ["profile_parse_failed"]);
+});
