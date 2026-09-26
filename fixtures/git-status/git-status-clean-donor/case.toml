@@ -29,5 +29,5 @@ source_repo = "dPeluChe/trs"
 source_commit = "0175ae73f36709fd4a9242b2e431d026d6f82bb3"
 source_path = "tests/fixture_data/git_status_clean.txt"
 license = "MIT"
-origin_issue = 33
+origin_issue = 34
 notes = "Copied fixture bytes; expected HuGR output and case metadata authored locally. TRS parser/runtime source not copied."
