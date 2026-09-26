@@ -29,7 +29,7 @@ Profiles do not call low-level `Signal` constructors directly. They create evide
 - `context.derived_count_signal(...)` — mechanically calculated count from validated, source-ordered, non-overlapping baseline spans.
 - `context.derived_count(...)` — display-only derived evidence with the same provenance rules.
 
-The low-level evidence constructors are module-private; a compile-fail doctest proves they are unavailable to an external profile implementation. Canonicalization currently exposes only the closed `trim_ascii_whitespace` rule. Empty canonical evidence is rejected.
+Low-level evidence construction is not exported from the package root. Production profiles create evidence through `ProfileContext`, which binds spans to the engine's actual safe baseline and outcomes to the actual observation. Canonicalization currently exposes only the closed `trim_ascii_whitespace` rule. Empty canonical evidence is rejected.
 
 An exit-code signal is unavailable unless termination is actually `Exited`.
 
@@ -44,13 +44,16 @@ The writer deliberately has no generic dynamic `text(&str)`/`write(String)` API.
 Available operations are:
 
 ```text
-static_text(&'static str)
-signal(&Signal)
-derived(&DerivedEvidence)
+literal`static label`
+literalLine`static label`
+signal(Signal)
+signalLine(Signal)
+derived(DerivedEvidence)
+derivedLine(DerivedEvidence)
 newline()
 ```
 
-`static_text` accepts only `&'static str`, so ordinary observation-derived runtime strings cannot flow through that method. A `compile_fail` doctest enforces this in CI.
+`literal` / `literalLine` are tagged-template APIs that reject interpolation at typecheck and runtime. The writer also verifies it received a frozen template object, so ordinary runtime strings/forged arrays cannot use the static path.
 
 `signal()` appends the signal's canonical representation and records its `SignalId` as emitted.
 
@@ -100,7 +103,7 @@ result
 
 ## Derived evidence vs critical signals
 
-Derived evidence may be display-only. Count derivations reject duplicate, overlapping, or out-of-order spans so one piece of evidence cannot be counted multiple times. If a derived claim is critical, it must be created as a derived `Signal` and its ID must be required by the Preservation Contract.
+Derived evidence may be display-only. Count derivations emit only the mechanical decimal count; surrounding prose must be static tagged-template text. Count derivations reject duplicate, overlapping, or out-of-order spans so one piece of evidence cannot be counted multiple times. If a derived claim is critical, it must be created as a derived `Signal` and its ID must be required by the Preservation Contract.
 
 ## Deliberate non-designs
 

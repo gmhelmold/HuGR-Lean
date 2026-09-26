@@ -138,7 +138,7 @@ An unmet requirement is not treated as a parser error and never authorizes a dif
 
 ## Analysis type erasure
 
-Profiles may have different internal analysis types. The engine carries analysis as `Box<dyn ProfileAnalysis>` and never inspects it.
+Profiles may have different internal analysis types. The shared `AnalysisBundle` carries profile-owned `unknown` data plus a Preservation Contract; the engine never interprets the profile's typed analysis payload.
 
 This keeps the core from inventing a generic semantic data model.
 

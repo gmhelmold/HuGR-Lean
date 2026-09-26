@@ -152,7 +152,21 @@ No production reducer framework, host integration or wholesale donor port.
 
 ## E1 execution status
 
-**COMPLETE — G-E1 Core Correctness: PASS**
+**REOPENED — TypeScript runtime migration #72; G-E1 revalidation pending**
+
+### Runtime amendment #72
+
+The approved behavioral contracts remain authoritative, but the unreleased Rust/subprocess implementation is being replaced by a single local TypeScript package.
+
+Migration exit conditions:
+
+- existing fixture corpus passes unchanged;
+- deterministic arbitrary-input evidence passes;
+- TypeScript typecheck/build/package verification pass;
+- Rust/Cargo runtime artifacts are removed;
+- zero runtime dependencies for the filtering core;
+- G-E1 is re-reviewed against the final TypeScript-only tree.
+
 
 Evidence:
 
@@ -164,7 +178,7 @@ Evidence:
 - latest gate-aligned main CI: `36184227395` — PASS
 - 107 regular tests + 2 compile-fail doctests, zero failures
 
-E2 Profile System & Coverage is now the active execution lane.
+E2 Profile System & Coverage is paused until #72 completes and G-E1 re-passes on the TypeScript-only tree.
 
 ## Mission
 
@@ -177,7 +191,7 @@ Build the smallest implementation that enforces HL-SPEC-001.
 
 ## Scope
 
-- one Rust package, library + binary;
+- one local TypeScript package;
 - Protocol V1;
 - ObservationV1 and FilterResultV1;
 - SourceV1, ShellDialectV1, TerminationV1, CompletenessV1;
@@ -360,22 +374,19 @@ A wider version range is advertised only after compatibility evidence exists.
 - thin TypeScript plugin;
 - post-execution tool hook;
 - ObservationV1 mapping;
-- direct one-shot Rust subprocess;
-- strict response validation;
+- direct in-process TypeScript core call;
+- strict observation/result validation;
 - top-level no-throw fail-open boundary;
-- binary discovery;
 - disabled-mode fast path;
-- process deadline;
-- install/status/doctor;
-- enable/disable;
-- uninstall;
-- platform binary resolution.
+- ordinary package/plugin install lifecycle;
+- enable/disable through the host/plugin surface;
+- uninstall through the normal package/plugin lifecycle.
 
 ## Hard rules
 
 - no pre-execution command rewriting;
 - no shell interpolation to invoke HuGR-Lean;
-- missing binary, bad config, bad JSON or timeout cannot crash OpenCode;
+- invalid config, invalid observation/result data, or unexpected core exceptions cannot crash OpenCode;
 - attachments are untouched;
 - no default model-visible telemetry.
 
@@ -432,15 +443,13 @@ Prove value and publish something another engineer can independently trust.
 - third-party notices;
 - release checklist and docs.
 
-## Initial platform target
+## Initial runtime target
 
-- macOS x86_64;
-- macOS arm64;
-- Linux x86_64;
-- Linux arm64;
-- Windows x86_64.
+- Node.js >= 22.18 semantics for the published package;
+- CI baseline on Node.js 24;
+- OpenCode's supported local JavaScript/TypeScript runtime for the first adapter.
 
-A platform is not advertised until actually tested.
+OS-specific smoke coverage may still be added, but HuGR-Lean no longer ships architecture-specific filtering binaries.
 
 ## Benchmark honesty
 
@@ -584,4 +593,4 @@ Project state:
 Roadmapped
 ~~~
 
-Execution tree is fully decomposed. E0 and E1 have passed their gates. The active execution lane is E2 Profile System & Coverage: WP3 #10 / #29-#37, with WP7 #14 continuing as the verification corpus lane.
+Execution tree is fully decomposed. E0 passed G-E0. E1 previously passed on the unreleased Rust implementation and is temporarily reopened for #72. E2 family work is paused until the TypeScript-only core re-passes G-E1. WP7 #14 remains the continuous verification corpus lane.

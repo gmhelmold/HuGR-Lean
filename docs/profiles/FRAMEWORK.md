@@ -38,7 +38,7 @@ This declaration is auditable metadata, not proof. Native/structured claims stil
 
 ## Registry invariants
 
-`ProfileRegistry::new(...)` rejects:
+``new ProfileRegistry(...)`` rejects:
 
 - invalid profile IDs;
 - invalid family names;
@@ -70,11 +70,11 @@ Unknown/truncated/version-drifted input remains conservative unless explicit fix
 
 ## Common writer patterns
 
-The shared writer supports `static_text`, `static_line`, `signal`, `signal_line`, `derived`, `derived_line`, and `newline`. Line helpers do not weaken the dynamic/static evidence boundary.
+The shared writer supports tagged `literal` / `literalLine`, plus `signal`, `signalLine`, `derived`, `derivedLine`, and `newline`. Static tags accept no interpolation; line helpers do not weaken the dynamic/static evidence boundary.
 
 ## Common mechanical primitives
 
-`src/primitive.rs` provides only exact mechanical helpers:
+`src/primitive.ts` provides only exact mechanical helpers:
 
 - exact non-overlapping substring spans;
 - logical line spans matching an exact prefix;
