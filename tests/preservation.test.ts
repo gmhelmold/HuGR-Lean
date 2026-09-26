@@ -73,9 +73,8 @@ test("outcome and derived evidence are mechanical", () => {
       { start_byte: 0, end_byte: first },
       { start_byte: secondStart, end_byte: secondEnd },
     ],
-    "failures",
   );
-  assert.equal(signal.canonical_text, "2 failures");
+  assert.equal(signal.canonical_text, "2");
 
   assert.throws(() =>
     ctx.derivedCountSignal(
@@ -114,16 +113,30 @@ test("writer line helpers retain evidence provenance", () => {
   const derived = ctx.derivedCount(
     "count_errors",
     [{ start_byte: 0, end_byte: Buffer.byteLength("ERROR") }],
-    "errors",
   );
 
   const writer = new LeanWriter();
-  writer.staticLine("summary:");
+  writer.literalLine`summary:`;
   writer.signalLine(signal);
   writer.derivedLine(derived);
   const output = writer.finish();
 
-  assert.equal(output.text, "summary:\nERROR\n1 errors\n");
+  assert.equal(output.text, "summary:\nERROR\n1\n");
   assert.ok(output.emitted_signal_ids.has(failureId));
   assert.equal(output.derived_records[0]?.rule_id, "count_errors");
+});
+
+
+test("static literal writer rejects interpolation and forged direct calls", () => {
+  const writer = new LeanWriter();
+  const dynamic = "dynamic";
+  assert.throws(() => {
+    // @ts-expect-error interpolation is forbidden by the public TypeScript API
+    writer.literal`${dynamic}`;
+  });
+
+  assert.throws(() => {
+    const forged = ["forged"] as unknown as TemplateStringsArray;
+    writer.literal(forged);
+  });
 });
