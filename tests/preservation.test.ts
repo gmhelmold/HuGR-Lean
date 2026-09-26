@@ -84,7 +84,6 @@ test("outcome and derived evidence are mechanical", () => {
         { start_byte: 0, end_byte: first },
         { start_byte: 0, end_byte: first },
       ],
-      "failures",
     ),
   );
 });
