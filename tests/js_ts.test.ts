@@ -183,6 +183,24 @@ test("Vitest inconsistent native-looking totals remain conservative", () => {
   assert.equal(result.replacement, null);
 });
 
+test("unknown trailing output after Jest/Vitest summaries remains conservative", () => {
+  const engine = new Engine(undefined, jsTsProfiles());
+
+  const jestTrailing = jestPass + "UNEXPECTED post-run warning\n";
+  const jestResult = engine.process(
+    observation("jest", jestTrailing, exited(0)),
+  );
+  assert.equal(jestResult.decision, "passthrough");
+  assert.equal(jestResult.replacement, null);
+
+  const vitestTrailing = vitestPass + "UNEXPECTED post-run warning\n";
+  const vitestResult = engine.process(
+    observation("vitest run", vitestTrailing, exited(0)),
+  );
+  assert.equal(vitestResult.decision, "passthrough");
+  assert.equal(vitestResult.replacement, null);
+});
+
 test("complete/exited requirements reject truncated and unknown test results", () => {
   const engine = new Engine(undefined, jsTsProfiles());
 
@@ -208,6 +226,30 @@ test("tsc textual diagnostics preserve Unicode file location evidence", () => {
   assert.ok(result.replacement?.includes("src/é.ts(12,5)"));
   assert.ok(result.replacement?.includes("TS2322"));
   assert.ok(!result.replacement?.includes("Found 1 error"));
+});
+
+test("tsc summary/table text cannot precede diagnostic evidence", () => {
+  const engine = new Engine(undefined, jsTsProfiles());
+
+  for (const input of [
+    [
+      "Found 1 error in src/app.ts:1",
+      "src/app.ts(1,1): error TS2322: Type mismatch.",
+      "",
+    ].join("\n"),
+    [
+      "Errors  Files",
+      "     1  src/app.ts:1",
+      "src/app.ts(1,1): error TS2322: Type mismatch.",
+      "",
+    ].join("\n"),
+  ]) {
+    const result = engine.process(
+      observation("tsc --noEmit", input, exited(2)),
+    );
+    assert.equal(result.decision, "passthrough");
+    assert.equal(result.replacement, null);
+  }
 });
 
 test("tsc diagnostics contradicting successful exit fail open", () => {
