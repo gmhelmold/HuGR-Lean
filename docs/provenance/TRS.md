@@ -136,10 +136,14 @@ WP3.4 adds fixture bytes only from the same pinned TRS revision:
   ← `tests/fixture_data/jest_all_passed.txt`
 - `fixtures/js-ts/jest-failure-donor/input.txt`
   ← `tests/fixture_data/jest_mixed.txt`
+- `fixtures/js-ts/jest-skipped-donor/input.txt`
+  ← `tests/fixture_data/jest_with_skipped.txt`
 - `fixtures/js-ts/vitest-pass-donor/input.txt`
   ← `tests/fixture_data/vitest_all_passed.txt`
 - `fixtures/js-ts/vitest-failure-donor/input.txt`
   ← `tests/fixture_data/vitest_mixed.txt`
+- `fixtures/js-ts/vitest-skipped-donor/input.txt`
+  ← `tests/fixture_data/vitest_with_skipped.txt`
 - `fixtures/js-ts/vitest-version-drift-donor/input.txt`
   ← `tests/fixture_data/vitest_mixed_skipped.txt`
 - `fixtures/js-ts/tsc-errors-donor/input.txt`
