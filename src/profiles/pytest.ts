@@ -91,8 +91,7 @@ export class PytestProfile implements Profile {
   render(analysis: unknown, writer: LeanWriter): void {
     const parsed = pytestAnalysis(analysis);
     if (parsed.evidence !== null) {
-      writer.signalLine(parsed.evidence);
-      writer.newline();
+      writer.signal(parsed.evidence);
     }
     writer.signalLine(parsed.summary);
   }
