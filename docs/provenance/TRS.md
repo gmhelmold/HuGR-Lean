@@ -198,3 +198,33 @@ WP3.7 inspected `tests/fixture_data/docker_ps_real.txt` at the pinned TRS revisi
 No fixture bytes are copied for WP3.7.
 
 Conclusion: the default native columns are all potentially decision-relevant, so no Docker ps profile is admitted at this stage.
+
+
+### WP3.8 Search fixture incorporation
+
+WP3.8 copies selected native grep/ripgrep-style fixture bytes from the pinned TRS revision:
+
+- `fixtures/search-rg/rg-single-file-multiple-donor/input.txt`
+  ← `tests/fixture_data/grep_single_file_multiple_matches.txt`
+- `fixtures/search-rg/rg-colon-content-donor/input.txt`
+  ← `tests/fixture_data/grep_with_colon_in_content.txt`
+- `fixtures/search-rg/rg-heading-donor/input.txt`
+  ← `tests/fixture_data/grep_ripgrep_heading.txt`
+- `fixtures/search-rg/rg-context-donor/input.txt`
+  ← `tests/fixture_data/grep_context_lines.txt`
+- `fixtures/search-rg/rg-column-donor/input.txt`
+  ← `tests/fixture_data/grep_with_column.txt`
+- `fixtures/search-rg/rg-binary-donor/input.txt`
+  ← `tests/fixture_data/grep_binary_file.txt`
+- `fixtures/search-rg/rg-single-match-donor/input.txt`
+  ← `tests/fixture_data/grep_simple.txt`
+- `fixtures/search-rg/rg-multiple-files-single-each-donor/input.txt`
+  ← `tests/fixture_data/grep_multiple_files.txt`
+- `fixtures/search-rg/rg-without-line-numbers-donor/input.txt`
+  ← `tests/fixture_data/grep_without_line_numbers.txt`
+
+Source pin: `0175ae73f36709fd4a9242b2e431d026d6f82bb3`.
+
+License: MIT. Existing notice remains at `docs/provenance/licenses/TRS-MIT.txt`.
+
+The HuGR-Lean ripgrep grouping profile is newly authored TypeScript. No TRS grep parser, truncation, router, rewrite, or runtime source code is copied.

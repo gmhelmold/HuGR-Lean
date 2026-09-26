@@ -81,6 +81,10 @@ export {
   gitProfiles,
 } from "./profiles/git.js";
 export {
+  RipgrepGroupedProfile,
+  searchProfiles,
+} from "./profiles/search.js";
+export {
   MAX_DIAGNOSTICS,
   PROTOCOL_V1,
   ProtocolError,
