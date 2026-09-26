@@ -118,8 +118,13 @@ export class Engine {
     }
 
     const profile = registered.profile;
-    const requirements = profile.requirements?.() ?? ANY_REQUIREMENTS;
-    const requirementFailure = checkRequirements(requirements, observation);
+    let requirementFailure: ReturnType<typeof checkRequirements>;
+    try {
+      const requirements = profile.requirements?.() ?? ANY_REQUIREMENTS;
+      requirementFailure = checkRequirements(requirements, observation);
+    } catch {
+      return checked(failedOpen(observation.output, "profile_parse_failed"));
+    }
     if (requirementFailure === "incomplete_input") {
       return checked(failedOpen(observation.output, "incomplete_input"));
     }
