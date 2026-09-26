@@ -132,6 +132,29 @@ test("diff show blob patch log and gh outputs remain exact passthrough", () => {
   }
 });
 
+test("parenthesized file content is not generically mistaken for a hint", () => {
+  const exactHintLikeName =
+    '  (use "git add <file>..." to include in what will be committed)';
+  const input = [
+    "On branch main",
+    "",
+    "Untracked files:",
+    exactHintLikeName,
+    exactHintLikeName,
+    "",
+  ].join("\n");
+
+  const result = new Engine(undefined, gitProfiles()).process(
+    observation("git status", input, exited(0)),
+  );
+
+  assert.equal(result.decision, "reduced");
+  assert.equal(
+    result.replacement,
+    ["On branch main", "Untracked files:", exactHintLikeName, ""].join("\n"),
+  );
+});
+
 test("localized or unknown git status grammar remains passthrough", () => {
   const input = [
     "Auf Branch main",
