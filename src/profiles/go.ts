@@ -153,9 +153,7 @@ function matchesGoTestVerbose(identity: InvocationIdentity): boolean {
     return false;
   }
 
-  return args.some(
-    (arg) => arg === "-v" || arg === "-test.v" || arg === "-test.v=true",
-  );
+  return args.some((arg) => arg === "-v");
 }
 
 function isUnsupportedGoTestMode(arg: string): boolean {
@@ -192,6 +190,7 @@ function parseGoTestVerbose(input: string): ParsedGoTestVerbose | null {
     }
 
     const blockStart = startLine.startByte;
+    let hasTestOutput = false;
     index += 1;
 
     while (index < lines.length) {
@@ -203,6 +202,10 @@ function parseGoTestVerbose(input: string): ParsedGoTestVerbose | null {
       const result = parseVerboseTestResult(line.text);
       if (result !== null) {
         if (result.name !== testName) {
+          return null;
+        }
+
+        if (result.status === "pass" && hasTestOutput) {
           return null;
         }
 
@@ -223,8 +226,11 @@ function parseGoTestVerbose(input: string): ParsedGoTestVerbose | null {
         break;
       }
 
-      if (line.text.length !== 0 && !/^\s+/u.test(line.text)) {
-        return null;
+      if (line.text.length !== 0) {
+        if (!/^\s+/u.test(line.text)) {
+          return null;
+        }
+        hasTestOutput = true;
       }
       index += 1;
     }
@@ -306,7 +312,7 @@ function parseVerboseTestResult(
 }
 
 function parsePackageSummary(line: string): "pass" | "fail" | null {
-  if (/^ok\s+\S+\s+[0-9.]+s$/u.test(line)) {
+  if (/^ok\s+\S+\s+(?:[0-9.]+s|\(cached\))$/u.test(line)) {
     return "pass";
   }
   if (/^FAIL\s+\S+\s+[0-9.]+s$/u.test(line)) {
