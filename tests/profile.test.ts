@@ -43,7 +43,7 @@ class SimpleProfile implements Profile {
   }
 
   render(_analysis: unknown, writer: LeanWriter): void {
-    writer.staticText("ok");
+    writer.literal`ok`;
   }
 }
 
@@ -157,7 +157,7 @@ test("registry snapshots descriptor metadata after admission", () => {
       return { data: null, preservation: new PreservationContract() };
     },
     render(_analysis, writer) {
-      writer.staticText("ok");
+      writer.literal`ok`;
     },
   };
 
