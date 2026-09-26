@@ -77,6 +77,10 @@ export {
   goProfiles,
 } from "./profiles/go.js";
 export {
+  GitStatusProfile,
+  gitProfiles,
+} from "./profiles/git.js";
+export {
   MAX_DIAGNOSTICS,
   PROTOCOL_V1,
   ProtocolError,
