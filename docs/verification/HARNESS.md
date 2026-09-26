@@ -18,7 +18,7 @@ fixture directory
   └── expected.txt?
        |
        v
-tests/support/fixture.rs
+tests/support/fixture.ts
        |
        v
 ObservationV1
@@ -46,7 +46,7 @@ The loader:
 - reads exact UTF-8 boundary input;
 - loads optional exact golden output.
 
-`toml` is a dev-dependency only. No TOML parser enters the runtime filtering dependency surface through WP1.5.
+`smol-toml` is a dev-dependency only. No TOML parser enters the runtime filtering dependency surface through WP1.5.
 
 ## Generic assertions
 
@@ -63,7 +63,7 @@ The harness verifies:
 - no-panic execution;
 - required-literal preservation.
 
-Execution is wrapped in `catch_unwind` so a fixture can report a core panic as a verification failure rather than aborting the complete suite.
+Any thrown core error fails the Node test case; fixture execution itself is therefore part of the no-crash evidence.
 
 ## E0 seed execution
 
@@ -77,7 +77,7 @@ They verify the conservative core remains passthrough before profile coverage is
 
 ## Proving profile
 
-`tests/support/proving_profile.rs` implements one intentionally artificial profile for the command:
+`tests/support/proving-profile.ts` implements one intentionally artificial profile for the command:
 
 ~~~text
 hugr-lean-prove
@@ -100,11 +100,11 @@ known command identity
   -> reduced result
 ~~~
 
-This avoids beginning Cargo/pytest/etc. production coverage before E2.
+This historically avoided beginning Cargo/pytest/etc. production coverage before E2. E2 is now active; the proving profile remains test-only.
 
 ## Deterministic generative corpus
 
-`tests/arbitrary_utf8.rs` generates thousands of deterministic strings containing:
+`tests/arbitrary.test.ts` generates thousands of deterministic strings containing:
 
 - Unicode;
 - NUL;
@@ -114,11 +114,11 @@ This avoids beginning Cargo/pytest/etc. production coverage before E2.
 - quotes/backticks/backslashes;
 - ordinary text.
 
-Cases are fed through:
+Cases are fed directly through the in-process TypeScript boundary:
 
 ~~~text
-serde_json encode
- -> Protocol V1 decoder
+ObservationV1
+ -> runtime validation
  -> invocation identity
  -> default engine
 ~~~
@@ -128,7 +128,7 @@ The property is:
 ~~~text
 no panic
 AND decision == passthrough
-AND replacement == None
+AND replacement == null
 AND exact byte metrics
 ~~~
 
