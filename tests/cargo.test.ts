@@ -204,6 +204,60 @@ test("cargo build unknown termination fails open before analysis", () => {
   assert.deepEqual(result.diagnostics, ["unknown_termination"]);
 });
 
+test("cargo message-format overrides are not parsed as native text", () => {
+  const input = [
+    "running 1 test",
+    "test tests::one ... ok",
+    "",
+    "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+    "",
+  ].join("\n");
+
+  for (const command of [
+    "cargo test --message-format=json",
+    "cargo test --message-format json",
+  ]) {
+    const result = new Engine(undefined, cargoProfiles()).process(
+      cargoObservation(command, input, exited(0)),
+    );
+    assert.equal(result.decision, "passthrough", command);
+  }
+});
+
+test("cargo test bare trailing carriage return remains unsupported data", () => {
+  const input = [
+    "running 1 test",
+    "test tests::one ... ok",
+    "",
+    "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\r",
+  ].join("\n");
+
+  const result = new Engine(undefined, cargoProfiles()).process(
+    cargoObservation("cargo test", input, exited(0)),
+  );
+
+  assert.equal(result.decision, "passthrough");
+  assert.equal(result.replacement, null);
+});
+
+test("cargo build evidence spans remain correct after Unicode prefix bytes", () => {
+  const input = [
+    "   Compiling demo v0.1.0 (/work/é中/demo)",
+    "error[E0308]: mismatched types",
+    " --> src/é.rs:2:5",
+    "error: could not compile \`demo\` due to 1 previous error",
+  ].join("\n");
+
+  const result = new Engine(undefined, cargoProfiles()).process(
+    cargoObservation("cargo build", input, exited(101)),
+  );
+
+  assert.equal(result.decision, "reduced");
+  assert.ok(result.replacement?.startsWith("error[E0308]: mismatched types"));
+  assert.ok(result.replacement?.includes("src/é.rs:2:5"));
+  assert.ok(!result.replacement?.includes("Compiling demo"));
+});
+
 test("cargo build success without diagnostics is left exact", () => {
   const input = [
     "   Compiling demo v0.1.0 (/work/demo)",
