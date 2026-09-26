@@ -7,10 +7,10 @@
 
 ### `cargo-test`
 
-Recognizes a direct `cargo test ...` identity and a native libtest-style output shape containing:
+Recognizes a direct `cargo test ...` identity and a deliberately narrow single-suite native libtest-style output shape containing:
 
 - at least one `running N test(s)` marker;
-- a canonical final `test result: ...` line;
+- exactly one canonical final `test result: ...` line;
 - failure blocks whose count agrees with the final failed count.
 
 Requirements:
@@ -28,15 +28,15 @@ Reduction:
 - preserves every recognized failure block verbatim;
 - preserves the final test-result summary verbatim.
 
-The summary status must agree with the known exit code. Contradiction fails open during analysis.
+The summary status must agree with both its failed-count field and the known exit code. Contradiction fails open or remains unmatched conservatively.
 
-Compile errors that prevent the native test-result summary from appearing are intentionally unsupported by `cargo-test` in this version and remain conservative.
+Compile errors that prevent the native test-result summary from appearing are intentionally unsupported by `cargo-test` in this version and remain conservative. Multiple test-suite summaries (for example workspace/doc-test runs) are also deferred until fixture-backed aggregation semantics are defined.
 
 ### `cargo-build`
 
 Recognizes direct `cargo build ...` output only when native textual rustc diagnostics are present.
 
-The profile removes only leading Cargo compilation chatter and preserves one verbatim suffix beginning at the first textual `error[...]`, `error:`, `warning[...]`, or `warning:` diagnostic through the end of the boundary output.
+The profile removes only leading Cargo compilation chatter and preserves one verbatim suffix beginning at the first textual `error[...]`, `error:`, `warning[...]`, or `warning:` diagnostic through the end of the boundary output. Diagnostic class and known exit code must agree: error-bearing output requires non-zero exit, while warning-only output requires zero exit.
 
 Successful build output with no diagnostics remains passthrough.
 
