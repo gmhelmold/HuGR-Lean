@@ -1005,7 +1005,7 @@ This avoids writing raw copies for trivial changes.
 
 ## 19.5 Store pressure and atomicity
 
-Artifacts MUST be created with create-new semantics so concurrent one-shot processes cannot overwrite each other.
+Artifacts MUST be created with create-new semantics so concurrent callers cannot overwrite each other.
 
 Writes MUST use a same-directory temporary file followed by close and atomic rename to the final random ID. Retrieval recognizes final IDs only; temporary files are never valid raw artifacts.
 
@@ -1021,21 +1021,15 @@ The result MUST carry `raw_store_failed` diagnostics and `raw_ref=None`.
 
 ---
 
-# 20. Raw retrieval CLI
+# 20. Raw retrieval
 
-Initial interface:
+Raw recovery is optional and local.
 
-~~~text
-hugr-lean raw <opaque-id>
-~~~
+If WP4 enables raw retention, the package SHALL expose a small programmatic retrieval API that returns the exact retained boundary text or an explicit unavailable result.
 
-Behavior:
+A human CLI MAY be added later for convenience, but it is not required for filtering correctness or the initial package architecture.
 
-- valid + retained → exact boundary input to stdout;
-- expired/missing → explicit non-zero exit;
-- invalid ID → rejected without filesystem lookup outside store.
-
-The command does not search.
+Recovery remains independent from filtering success.
 
 ---
 
@@ -1098,63 +1092,23 @@ They do not credit HuGR-Lean for upstream host truncation.
 
 ## 22.1 Philosophy
 
-Default-first.
+Normal use SHOULD require no configuration.
 
-Configuration exists to disable behavior, bound resources, or enable raw retention.
+The core exposes a small programmatic `EngineConfig` with safety-bounded values such as active maximum input size.
 
-## 22.2 Core configuration
+Host adapters MAY expose enable/disable and exact profile/tool exclusions when real user demand exists.
 
-Protocol/config v1 uses TOML:
+## 22.2 No mandatory config file
 
-~~~toml
-enabled = true
-max_input_bytes = 4194304
+HuGR-Lean v1 does not require TOML, YAML, JSON, or project-local configuration files.
 
-[raw]
-enabled = false
-retention_hours = 6
-max_bytes = 134217728
-
-[exclude]
-profiles = []
-commands = []
-~~~
-
-Config lookup order:
-
-1. `HUGR_LEAN_CONFIG` when set;
-2. Unix/macOS: ${XDG_CONFIG_HOME:-$HOME/.config}/hugr-lean/config.toml;
-3. Windows: `%APPDATA%\\HuGR-Lean\\config.toml`;
-4. built-in defaults when no file exists.
-
-Invalid existing config is an explicit configuration error. The adapter fails open for that tool result; it MUST NOT silently reinterpret invalid values as defaults.
-
-`exclude.profiles` is an exact list of profile IDs.
-
-`exclude.commands` uses exact normalized executable/subcommand roots, not arbitrary regex.
-
-When `enabled=false`, the core returns `passthrough` with `replacement=None`.
-
-Environment switch:
-
-~~~text
-HUGR_LEAN_DISABLED=1
-~~~
-
-allows adapters to bypass the engine without spawning it.
+A config file format is introduced only if concrete local-user workflows require persistence beyond host/plugin settings.
 
 ## 22.3 No compression level
 
-There is no:
+There is no `aggressive`, `medium`, `level=9`, or similar tuning surface.
 
-~~~text
-aggressiveness
-semantic threshold
-confidence threshold
-compression level
-~~~
-
-A reducer is either valid for its recognized contract or not.
+Safety remains determined by profile applicability and Preservation Contracts, not user-selected lossy intensity.
 
 ---
 
@@ -1247,20 +1201,22 @@ If future profile work introduces asynchronous I/O, that is a specification chan
 
 ---
 
-# 26. Human CLI
+# 26. Public package API
 
-Initial human-facing commands:
+The initial product surface is deliberately small.
 
-~~~text
-hugr-lean filter --protocol 1
-hugr-lean raw <id>
-hugr-lean doctor
-hugr-lean version
+Conceptually:
+
+~~~ts
+const engine = new Engine(config?, profiles?)
+const result = engine.process(observation)
 ~~~
 
-A broad interactive CLI is not required.
+The package MAY expose supporting types/helpers for adapters and profile authors.
 
-`stats` may be provided by adapters using ephemeral aggregates; a persistent analytics subsystem is explicitly not part of v1.
+No CLI is required for normal filtering, installation, or host integration.
+
+Future convenience commands such as diagnostics or raw retrieval require concrete user need; they are not part of core correctness.
 
 ---
 
@@ -1431,85 +1387,56 @@ Raw IDs cannot contain path separators.
 
 # 33. Testing architecture
 
-## 33.1 Unit tests
+## 33.1 Typecheck
 
-Required for:
+Strict TypeScript typechecking is a release gate.
 
-- protocol parsing;
-- SafeNormalization primitives;
-- simple shell parser;
-- profile recognition;
-- profile analysis;
-- restricted Signal constructors/evidence spans;
-- LeanWriter static/dynamic separation;
-- preservation validation;
-- metrics;
-- raw ID validation;
-- config bounds.
+Core safety boundaries such as static-only writer text use compile-time negative assertions where practical.
 
-## 33.2 Fixture tests
+## 33.2 Unit tests
 
-Each profile requires:
+Unit tests cover protocol/result invariants, command identity, SafeNormalization, UTF-8 evidence spans, Preservation Contracts, registry admission, primitives, and engine fail-open paths.
 
-~~~text
-success
-failure
-warnings
-malformed
-ambiguous
-version variants
-already-lean/idempotence
-~~~
+## 33.3 Fixture tests
 
-where relevant.
+All profile/normalization evidence uses the shared fixture contract. The existing TOML corpus is executed unchanged against the TypeScript engine during migration.
 
-## 33.3 Negative fixtures
+Each production profile requires applicable success/failure/warning/malformed/incomplete/version/idempotence/regression evidence.
 
-Every destructive primitive requires fixtures proving when it MUST NOT activate.
+## 33.4 Negative fixtures
 
-## 33.4 Property tests
+Every destructive primitive/profile behavior requires cases proving when it MUST NOT activate.
 
-High-value properties:
+## 33.5 Property/generative tests
+
+High-value properties include:
 
 - SafeNormalization idempotence;
-- no panic on arbitrary UTF-8;
-- fail-open output equals safe baseline;
-- required signals survive;
-- output does not expand after non-expansion guard;
-- shell parser never upgrades complex syntax to simple identity.
+- no mutation of unknown arbitrary UTF-8;
+- fail-open preservation;
+- required-signal survival;
+- non-expansion;
+- conservative shell recognition.
 
-## 33.5 Fuzzing
+The deterministic arbitrary-input corpus is part of normal CI. Additional fuzz/property tooling MAY be added as development-only tooling when it provides distinct evidence.
 
-Fuzz targets SHOULD cover:
+## 33.6 OpenCode integration tests
 
-- protocol decoder;
-- simple shell recognizer;
-- terminal normalization;
-- high-risk profile parsers.
-
-Fuzzing is development verification, not a runtime subsystem.
-
-## 33.6 Integration tests
-
-OpenCode adapter tests require:
+Adapter tests require:
 
 - hook mutation reaches returned model-visible output on supported versions;
-- original output survives binary missing/crash/nonzero protocol failure;
-- malformed or inconsistent response schema fails open;
-- metadata mapping of exit/truncation state is correct;
-- missing exit maps to `TerminationV1::Unknown`, not success;
-- truncated input cannot produce unsupported complete aggregate claims;
+- core/adapter exceptions preserve original output;
+- malformed/inconsistent mapped observations/results fail open;
+- exit/truncation state mapping is truthful;
+- truncated input cannot produce unsupported complete claims;
 - shell source does not imply `TerminalRendered`;
-- portable bare-command routing works with unknown shell dialect;
-- quoted/complex unknown-dialect commands fail conservative;
-- binary timeout fails open;
-- adapter hook never throws into OpenCode;
+- complex shell commands remain conservative;
 - attachments remain unchanged;
-- disabled mode performs no subprocess invocation.
+- disabled mode bypasses filtering.
 
 ## 33.7 Regression rule
 
-Every real destructive false positive becomes a permanent fixture.
+Every real destructive false positive becomes permanent regression evidence.
 
 ---
 
@@ -1628,39 +1555,27 @@ Required license/NOTICE text MUST ship with distributions where applicable.
 
 # 36. Packaging strategy
 
-## 36.1 Core binary
+## 36.1 Single package
 
-Release matrix SHOULD include at minimum:
+HuGR-Lean SHALL ship as a normal JavaScript/TypeScript package.
 
-~~~text
-macOS x86_64
-macOS arm64
-Linux x86_64
-Linux arm64
-Windows x86_64
-~~~
+The package contains the core and may contain the initial OpenCode integration while the project remains small.
 
-Additional targets require demand/evidence.
+No OS/architecture-specific binary package is required.
 
-## 36.2 OpenCode plugin
+## 36.2 Installation
 
-The plugin package SHALL resolve a matching HuGR-Lean binary without asking the user to compile Rust.
+Installation should be ordinary package-manager/local-plugin installation. Users do not compile Rust or download a platform binary.
 
-Preferred packaging pattern:
+## 36.3 Runtime dependencies
 
-- thin JavaScript/TypeScript adapter package;
-- platform-specific binary packages as optional dependencies;
-- runtime selects the package matching OS/arch.
+The filtering core targets zero production dependencies. Development/build/test dependencies do not become runtime requirements.
 
-Exact registry package names are non-normative until publication.
-
-## 36.3 Standalone releases
-
-GitHub Releases SHOULD publish checksum-verifiable standalone binaries.
-
-## 36.4 No runtime network
+## 36.4 Offline behavior
 
 Once installed, filtering MUST work without network access.
+
+The package MUST NOT require an account, hosted service, license server, or telemetry endpoint.
 
 ---
 
@@ -1676,7 +1591,6 @@ At the pinned stable release `v1.18.32@545f51d...`:
 - native shell truncation can happen before the hook;
 - default host truncation is 50 KiB or 2,000 lines;
 - the host may save full truncated shell output to a path;
-- OpenCode publishes a `darwin-x64-baseline` artifact, so Intel macOS is a concrete supported deployment target.
 
 Therefore:
 
@@ -1774,7 +1688,7 @@ If future evidence proves command mutation is necessary for a specific host, it 
 
 | Plan property | Technical mechanism |
 |---|---|
-| INV-001 No LLM | no inference dependency; one-shot deterministic Rust core |
+| INV-001 No LLM | no inference dependency; deterministic local TypeScript core |
 | INV-002 No semantic guessing | identity-based routing + fixture-backed profiles |
 | INV-003 Fail open | adapter retains original; core failed_open path |
 | INV-004 Critical preservation | Signal + LeanWriter + Preservation Contract |
@@ -1809,12 +1723,12 @@ If future evidence proves command mutation is necessary for a specific host, it 
 | FR-005 Unknown handling | passthrough default |
 | FR-006 Preservation Contract | Signal/LeanWriter validation |
 | FR-007 Raw preservation | opt-in file store |
-| FR-008 Raw retrieval | `hugr-lean raw` |
+| FR-008 Raw retrieval | optional local retrieval API when WP4 enables retention |
 | FR-009 Metrics | MetricsV1 |
 | FR-010 Enable/disable | adapter/core config |
 | FR-011 Exclusion | tool/command exclusions |
-| FR-012 Install/uninstall | adapter packaging |
-| FR-013 Host independence | protocol boundary |
+| FR-012 Install/uninstall | normal package/plugin lifecycle |
+| FR-013 Host independence | ObservationV1 / FilterResultV1 semantic boundary |
 | FR-014 Profile admission | fixture-backed profile registration |
 | FR-015 Exact escape | raw retrieval where enabled; passthrough exact classes |
 
@@ -1826,22 +1740,23 @@ The following are deliberately absent from HL-SPEC-001 v1 scope:
 
 - LLM summarization;
 - semantic relevance model;
-- vector store;
-- FTS/BM25;
-- SQLite;
+- vector store / FTS / BM25;
+- SQLite/database;
 - resident daemon;
 - socket protocol;
-- N-API;
-- WASM;
+- filtering subprocess;
+- Rust/native core;
+- N-API/native addon;
+- WASM bridge;
 - generic arbitrary-text deduplication;
-- source code summarization;
+- source-code summarization;
 - command auto-rewrite;
 - browser UI;
 - telemetry service;
-- remote API;
-- plugin marketplace service;
+- remote API/account/service;
 - dynamic compression levels;
-- probabilistic profile routing.
+- probabilistic profile routing;
+- dual-runtime/reference implementation maintenance.
 
 Their absence is a design result, not missing work.
 
@@ -1849,32 +1764,30 @@ Their absence is a design result, not missing work.
 
 # 45. Technical Definition of Done
 
-HL-SPEC-001 is implemented when all of the following are demonstrably true:
+HL-SPEC-001 v1.1 is implemented when all of the following are demonstrably true:
 
-1. one Rust package builds library + binary;
-2. Protocol V1 round-trips valid observations/results;
-3. malformed protocol fails without mutating host output;
-4. SafeNormalization obeys explicit applicability and idempotence;
+1. one local TypeScript package provides the core filtering API;
+2. core filtering requires no Rust toolchain, native binary, subprocess, daemon, network, LLM, or database;
+3. ObservationV1 / FilterResultV1 semantic invariants are typechecked and runtime-validated;
+4. SafeNormalization obeys explicit applicability, idempotence, and non-expansion;
 5. unknown arbitrary text defaults to passthrough;
-6. simple command recognition never treats complex shell syntax as a direct simple command;
-7. at least one real profile performs reduction through analyze/render/validate;
-8. data-bearing rendered claims are source-backed or mechanically derived;
+6. simple command recognition never treats complex shell syntax as direct identity;
+7. production profiles reduce only fixture-backed native/already-structured boundary shapes;
+8. data-bearing rendered claims are source-backed/outcome-backed or mechanically derived;
 9. missing required signals cause fail-open;
-10. non-expansion guard prevents larger model output;
-11. OpenCode adapter successfully mutates supported hook output;
-12. OpenCode adapter preserves original output on missing binary/crash/timeout/protocol/schema failure;
+10. non-expansion prevents larger model output;
+11. the first supported OpenCode adapter invokes the core in-process and mutates only validated replacements;
+12. adapter/core exceptions preserve original host output;
 13. exit/truncation/unknown states are mapped without false certainty;
 14. truncated input cannot yield unsupported complete summaries;
 15. shell source alone never enables terminal SafeNormalization;
-16. adapter hook never throws HuGR-Lean failures into the host;
-17. attachments are untouched;
-18. raw retention is off by default;
-19. enabled raw retention is local, bounded, exact, and lazily cleaned;
-20. metrics are boundary-honest;
-21. core requires no network, LLM, database, or daemon;
-22. performance targets are benchmarked;
-23. donor provenance is recorded for reused material;
-24. all mapped HL-PLAN-001 invariants have automated or auditable verification.
+16. attachments/non-text payloads are untouched unless separately specified;
+17. raw retention remains off by default and independent from filtering correctness;
+18. metrics are UTF-8-byte and boundary-honest;
+19. performance targets are benchmarked before publication;
+20. donor provenance is recorded for reused material;
+21. the shared fixture corpus and deterministic arbitrary-input corpus pass in CI;
+22. all mapped HL-PLAN-001 invariants have automated or auditable verification.
 
 ---
 
