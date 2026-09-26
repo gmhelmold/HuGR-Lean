@@ -189,3 +189,12 @@ Source pin: `0175ae73f36709fd4a9242b2e431d026d6f82bb3`.
 License: MIT. Existing notice remains at `docs/provenance/licenses/TRS-MIT.txt`.
 
 The HuGR-Lean Git parser/profile is newly authored TypeScript. No TRS parser, router, rewrite, probe, or integration source code is copied.
+
+
+### WP3.7 Docker native-output evidence
+
+WP3.7 inspected `tests/fixture_data/docker_ps_real.txt` at the pinned TRS revision to assess whether native Docker ps output contains a provably removable class.
+
+No fixture bytes are copied for WP3.7.
+
+Conclusion: the default native columns are all potentially decision-relevant, so no Docker ps profile is admitted at this stage.
