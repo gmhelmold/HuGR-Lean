@@ -58,6 +58,10 @@ export {
   type TerminationRequirement,
 } from "./profile.js";
 export {
+  PytestProfile,
+  pytestProfiles,
+} from "./profiles/pytest.js";
+export {
   CargoBuildProfile,
   CargoTestProfile,
   cargoProfiles,
