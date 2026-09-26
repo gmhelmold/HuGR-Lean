@@ -38,7 +38,7 @@ This declaration is auditable metadata, not proof. Native/structured claims stil
 
 ## Registry invariants
 
-`ProfileRegistry::new(...)` rejects:
+``new ProfileRegistry(...)`` rejects:
 
 - invalid profile IDs;
 - invalid family names;
@@ -74,7 +74,7 @@ The shared writer supports `static_text`, `static_line`, `signal`, `signal_line`
 
 ## Common mechanical primitives
 
-`src/primitive.rs` provides only exact mechanical helpers:
+`src/primitive.ts` provides only exact mechanical helpers:
 
 - exact non-overlapping substring spans;
 - logical line spans matching an exact prefix;
