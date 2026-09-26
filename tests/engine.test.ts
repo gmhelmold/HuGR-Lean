@@ -87,9 +87,9 @@ class StaticProfile implements Profile {
       throw new Error("render");
     }
     if (this.text === "ok") {
-      writer.staticText("ok");
+      writer.literal`ok`;
     } else {
-      writer.staticText("same");
+      writer.literal`same`;
     }
   }
 
@@ -140,7 +140,7 @@ class EvidenceProfile implements Profile {
     if (this.emit) {
       writer.signal(analysis as Signal);
     } else {
-      writer.staticText("ok");
+      writer.literal`ok`;
     }
   }
 }
