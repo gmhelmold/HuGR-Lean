@@ -11,7 +11,6 @@ import {
 import {
   PROTOCOL_V1,
   exited,
-  unknownTermination,
   utf8Bytes,
   validateObservationV1,
   type DecisionV1,
