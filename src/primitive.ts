@@ -1,5 +1,45 @@
 import type { ByteSpan } from "./preservation.js";
 
+export interface LineRecord {
+  readonly text: string;
+  readonly start_byte: number;
+  readonly end_byte: number;
+  readonly end_with_newline_byte: number;
+}
+
+export function lineRecords(input: string): LineRecord[] {
+  const records: LineRecord[] = [];
+  let codeUnitOffset = 0;
+  let byteOffset = 0;
+
+  while (codeUnitOffset < input.length) {
+    const newline = input.indexOf("\n", codeUnitOffset);
+    const chunkEnd = newline < 0 ? input.length : newline + 1;
+    const chunk = input.slice(codeUnitOffset, chunkEnd);
+    const hasLf = chunk.endsWith("\n");
+    const withoutLf = hasLf ? chunk.slice(0, -1) : chunk;
+    const content =
+      hasLf && withoutLf.endsWith("\r")
+        ? withoutLf.slice(0, -1)
+        : withoutLf;
+
+    const contentBytes = Buffer.byteLength(content, "utf8");
+    const chunkBytes = Buffer.byteLength(chunk, "utf8");
+
+    records.push({
+      text: content,
+      start_byte: byteOffset,
+      end_byte: byteOffset + contentBytes,
+      end_with_newline_byte: byteOffset + chunkBytes,
+    });
+
+    codeUnitOffset = chunkEnd;
+    byteOffset += chunkBytes;
+  }
+
+  return records;
+}
+
 export class PrimitiveError extends Error {
   override readonly name = "PrimitiveError";
 }
