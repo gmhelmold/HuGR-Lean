@@ -126,3 +126,28 @@ Source pin:
 License: MIT. Existing notice remains at `docs/provenance/licenses/TRS-MIT.txt`.
 
 The HuGR-Lean pytest parser/profile is newly authored TypeScript. No TRS parser, reducer, router, rewrite, or integration source code is copied.
+
+
+### WP3.4 JavaScript/TypeScript fixture incorporation
+
+WP3.4 adds fixture bytes only from the same pinned TRS revision:
+
+- `fixtures/js-ts/jest-pass-donor/input.txt`
+  ← `tests/fixture_data/jest_all_passed.txt`
+- `fixtures/js-ts/jest-failure-donor/input.txt`
+  ← `tests/fixture_data/jest_mixed.txt`
+- `fixtures/js-ts/vitest-pass-donor/input.txt`
+  ← `tests/fixture_data/vitest_all_passed.txt`
+- `fixtures/js-ts/vitest-failure-donor/input.txt`
+  ← `tests/fixture_data/vitest_mixed.txt`
+- `fixtures/js-ts/vitest-version-drift-donor/input.txt`
+  ← `tests/fixture_data/vitest_mixed_skipped.txt`
+- `fixtures/js-ts/tsc-errors-donor/input.txt`
+  ← `tests/fixture_data/lint_tsc_errors.txt`
+
+Source pin:
+`0175ae73f36709fd4a9242b2e431d026d6f82bb3`.
+
+License: MIT. Existing notice remains at `docs/provenance/licenses/TRS-MIT.txt`.
+
+The HuGR-Lean Jest/Vitest/tsc profiles are newly authored TypeScript. No TRS parser, router, reducer, rewrite, or integration source code is copied.
