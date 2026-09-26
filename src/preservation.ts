@@ -49,6 +49,7 @@ export class Signal {
 
   /** @internal */
   static verbatim(id: SignalId, input: string, span: ByteSpan): Signal {
+    validateSignalId(id);
     return new Signal(id, extractSpan(input, span), {
       kind: "input_span",
       span: { ...span },
@@ -62,6 +63,7 @@ export class Signal {
     span: ByteSpan,
     rule: CanonicalizationRule,
   ): Signal {
+    validateSignalId(id);
     const source = extractSpan(input, span);
     const text =
       rule === "trim_ascii_whitespace"
@@ -85,6 +87,7 @@ export class Signal {
     field: OutcomeField,
     observation: ObservationV1,
   ): Signal {
+    validateSignalId(id);
     let text: string;
     if (field === "exit_code") {
       if (
@@ -109,11 +112,11 @@ export class Signal {
     ruleId: string,
     input: string,
     sourceSpans: ByteSpan[],
-    noun: string,
   ): Signal {
+    validateSignalId(id);
     validateRuleId(ruleId);
     validateCountSpans(input, sourceSpans);
-    return new Signal(id, `${sourceSpans.length} ${noun}`, {
+    return new Signal(id, String(sourceSpans.length), {
       kind: "derived",
       rule_id: ruleId,
       source_spans: sourceSpans.map((span) => ({ ...span })),
@@ -133,12 +136,11 @@ export class DerivedEvidence {
     ruleId: string,
     input: string,
     sourceSpans: ByteSpan[],
-    noun: string,
   ): DerivedEvidence {
     validateRuleId(ruleId);
     validateCountSpans(input, sourceSpans);
     return new DerivedEvidence(
-      `${sourceSpans.length} ${noun}`,
+      String(sourceSpans.length),
       ruleId,
       sourceSpans.map((span) => ({ ...span })),
     );
@@ -169,8 +171,6 @@ export class PreservationError extends Error {
   override readonly name = "PreservationError";
 }
 
-type LiteralOnly<T extends string> = string extends T ? never : T;
-
 export interface DerivedRecord {
   rule_id: string;
   source_spans: ByteSpan[];
@@ -181,12 +181,12 @@ export class LeanWriter {
   #signalIds = new Set<SignalId>();
   #derived: DerivedRecord[] = [];
 
-  staticText<const T extends string>(text: LiteralOnly<T>): void {
-    this.#text += text;
+  literal(strings: TemplateStringsArray, ...values: readonly unknown[]): void {
+    this.#appendLiteral(strings, values);
   }
 
-  staticLine<const T extends string>(text: LiteralOnly<T>): void {
-    this.staticText(text);
+  literalLine(strings: TemplateStringsArray, ...values: readonly unknown[]): void {
+    this.#appendLiteral(strings, values);
     this.newline();
   }
 
@@ -226,6 +226,19 @@ export class LeanWriter {
         source_spans: record.source_spans.map((span) => ({ ...span })),
       })),
     );
+  }
+
+  #appendLiteral(
+    strings: TemplateStringsArray,
+    values: readonly unknown[],
+  ): void {
+    if (values.length !== 0) {
+      throw new EvidenceError("static literal output cannot contain interpolation");
+    }
+    if (!Object.isFrozen(strings) || !Object.isFrozen(strings.raw)) {
+      throw new EvidenceError("static output must come from tagged-template syntax");
+    }
+    this.#text += strings.join("");
   }
 }
 
@@ -271,9 +284,8 @@ export function createDerivedCountSignal(
   ruleId: string,
   input: string,
   sourceSpans: ByteSpan[],
-  noun: string,
 ): Signal {
-  return Signal.derivedCount(id, ruleId, input, sourceSpans, noun);
+  return Signal.derivedCount(id, ruleId, input, sourceSpans);
 }
 
 /** @internal */
@@ -281,9 +293,8 @@ export function createDerivedCount(
   ruleId: string,
   input: string,
   sourceSpans: ByteSpan[],
-  noun: string,
 ): DerivedEvidence {
-  return DerivedEvidence.count(ruleId, input, sourceSpans, noun);
+  return DerivedEvidence.count(ruleId, input, sourceSpans);
 }
 
 export function validateByteSpan(input: string, span: ByteSpan): void {
@@ -352,6 +363,12 @@ function byteSpanToCodeUnits(input: string, span: ByteSpan): [number, number] {
   }
 
   return [start, end];
+}
+
+function validateSignalId(id: SignalId): void {
+  if (id.length === 0) {
+    throw new EvidenceError("signal id must not be empty");
+  }
 }
 
 function validateRuleId(ruleId: string): void {
