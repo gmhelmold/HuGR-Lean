@@ -34,6 +34,18 @@ const SECTION_HEADERS = new Set([
   "Unmerged paths:",
 ]);
 
+const KNOWN_HINT_LINES = new Set([
+  '  (use "git restore --staged <file>..." to unstage)',
+  '  (use "git add <file>..." to update what will be committed)',
+  '  (use "git restore <file>..." to discard changes in working directory)',
+  '  (use "git add <file>..." to include in what will be committed)',
+  '  (fix conflicts and run "git commit")',
+  '  (use "git merge --abort" to abort the merge)',
+  '  (use "git add <file>..." to mark resolution)',
+  '  (use "git push" to publish your local commits)',
+  '  (use "git pull" to update your local branch)',
+]);
+
 export class GitStatusProfile implements Profile {
   descriptor(): ProfileDescriptor {
     return {
@@ -110,12 +122,13 @@ function parseGitStatus(input: string): ByteSpan[] | null {
 
   let index = 0;
   const kept: ByteSpan[] = [];
+  const droppedHints = new Set<string>();
 
   const first = lines[index];
   if (
     first === undefined ||
-    (!first.text.startsWith("On branch ") &&
-      !first.text.startsWith("HEAD detached at "))
+    (!/^On branch .+$/u.test(first.text) &&
+      !/^HEAD detached at .+$/u.test(first.text))
   ) {
     return null;
   }
@@ -145,7 +158,7 @@ function parseGitStatus(input: string): ByteSpan[] | null {
       continue;
     }
 
-    if (isHintLine(line.text)) {
+    if (shouldDropKnownHint(line.text, droppedHints)) {
       index += 1;
       continue;
     }
@@ -165,7 +178,7 @@ function parseGitStatus(input: string): ByteSpan[] | null {
           index += 1;
           break;
         }
-        if (isHintLine(entry.text)) {
+        if (shouldDropKnownHint(entry.text, droppedHints)) {
           index += 1;
           continue;
         }
@@ -210,8 +223,12 @@ function isBranchTrackingLine(line: string): boolean {
   );
 }
 
-function isHintLine(line: string): boolean {
-  return /^\s{2}\(.*\)$/u.test(line);
+function shouldDropKnownHint(line: string, dropped: Set<string>): boolean {
+  if (!KNOWN_HINT_LINES.has(line) || dropped.has(line)) {
+    return false;
+  }
+  dropped.add(line);
+  return true;
 }
 
 function isFinalStatusLine(line: string): boolean {
