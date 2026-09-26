@@ -1,0 +1,5 @@
+running 2 tests
+test tests::one ... ok
+test tests::two ... ok
+
+test result: maybe. two passed somehow
