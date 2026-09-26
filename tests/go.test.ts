@@ -127,6 +127,13 @@ test("cached native package summary is admitted", () => {
   );
 });
 
+test("go test -args boundary cannot turn a test-binary flag into Go verbose mode", () => {
+  const result = new Engine(undefined, goProfiles()).process(
+    observation("go test -args -v", passingVerbose, exited(0)),
+  );
+  assert.equal(result.decision, "passthrough");
+});
+
 test("go test benchmark and fuzz modes remain outside the profile", () => {
   const engine = new Engine(undefined, goProfiles());
   for (const command of [
