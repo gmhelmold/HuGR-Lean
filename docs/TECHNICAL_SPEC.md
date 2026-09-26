@@ -454,47 +454,44 @@ No phase may call an LLM.
 
 ---
 
-# 9. Decode
+# 9. Validation boundary
 
-Malformed protocol JSON produces a protocol error and non-zero binary exit status.
+`ObservationV1` is an in-memory TypeScript value in the normal runtime path.
 
-The host adapter MUST treat protocol failure as passthrough and retain the original tool output.
+The core MUST validate:
 
-Protocol errors MUST NOT fabricate a `FilterResultV1`.
+- schema version;
+- termination/code consistency;
+- required bounded enum values supplied by the adapter;
+- result invariants before returning a model-visible replacement.
+
+A malformed/invalid observation causes the adapter boundary to preserve the original tool output.
+
+JSON parsing is not part of normal filtering. If a future adapter accepts serialized observations, parsing/validation failures MUST fail open before the core is invoked.
 
 ---
 
 # 10. Size guard
 
-Default maximum input for active filtering:
+The core active-filtering limit remains bounded:
 
 ~~~text
-4 MiB UTF-8 boundary output
+default: 4 MiB
+minimum configurable: 1 MiB
+hard maximum: 16 MiB
 ~~~
 
-Hard configurable maximum:
+If the boundary output exceeds the active limit:
 
 ~~~text
-16 MiB
+decision = failed_open
+replacement = null
+diagnostic = input_too_large
 ~~~
 
-For larger input:
+The caller already owns the original output, so no copy/IPC fallback is required.
 
-- the core returns `failed_open`;
-- `replacement=None`;
-- logical output remains the adapter-owned boundary input;
-- diagnostic `input_too_large` is emitted;
-- no truncation is introduced by HuGR-Lean.
-
-The adapter SHOULD bypass subprocess invocation entirely when it already knows the boundary input exceeds the hard maximum.
-
-The binary MUST also bound protocol-envelope input before unbounded JSON allocation. Protocol V1 hard envelope limit:
-
-~~~text
-128 MiB
-~~~
-
-The host's own limits may be much lower; OpenCode v1.18.32 defaults shell/tool truncation to 50 KiB or 2,000 lines.
+The previous 128 MiB subprocess-envelope limit is removed because v1 no longer has a serialized process boundary.
 
 ---
 
@@ -1165,184 +1162,88 @@ A reducer is either valid for its recognized contract or not.
 
 ## 23.1 Compatibility snapshot
 
-Initial verified release:
+The first supported host remains OpenCode v1.18.32 unless later compatibility evidence widens the range.
 
-~~~text
-OpenCode v1.18.32
-tag commit 545f51d26cc39a907d2867492d498d9607ea5fa4
-published 2026-09-21
-~~~
-
-At that release, the execution path invokes:
-
-~~~text
-tool.execute.before
-tool execute
-tool.execute.after
-return output
-~~~
-
-and `tool.execute.after` receives mutable:
-
-~~~text
-title
-output
-metadata
-~~~
-
-The OpenCode adapter SHALL use `tool.execute.after`.
+OpenCode calls `tool.execute.after` after execution and exposes mutable tool output plus metadata.
 
 ## 23.2 Observation mapping
 
-For OpenCode v1.18.32, the exposed shell tool ID remains `"bash"` even when the configured underlying shell may be PowerShell or cmd.
-
-For each eligible invocation:
+The adapter maps only facts it actually knows into `ObservationV1`.
 
 ~~~text
-source        = Shell             when input.tool == "bash"
-source        = Other             otherwise in initial adapter
-command       = input.args.command only when it is a string and source == Shell
-shell_dialect = Unknown           in initial adapter
-output        = output.output
-
-termination   = Exited(code)      when metadata.exit is an integer
-termination   = Unknown           otherwise
-
-completeness  = Truncated         when metadata.truncated === true
-completeness  = Complete          when metadata.truncated === false
-completeness  = Unknown           when the field is absent/untrusted
-
-presentation  = Unknown
+tool.id       -> SourceV1 / command identity inputs
+output        -> boundary output
+metadata.exit -> Exited(code) when trustworthy
+truncated     -> Complete/Truncated when trustworthy
+otherwise     -> Unknown
+presentation  -> Unknown unless host integration proves TerminalRendered
 ~~~
 
-The initial adapter deliberately does not infer timeout/abort from prose, does not infer shell dialect from the exposed tool ID, and does not mark captured shell text as `TerminalRendered`.
+Unknown is never upgraded to success/completeness by guesswork.
 
-Arbitrary metadata is not forwarded.
+## 23.3 In-process mutation
 
-## 23.3 Mutation
+The adapter calls the local TypeScript core directly:
 
-If HuGR-Lean returns:
+~~~ts
+const result = engine.process(observation)
+~~~
+
+It mutates model-visible output only when a schema-valid result has:
 
 ~~~text
-reduced
-normalized
+decision = normalized | reduced
+replacement != null
 ~~~
 
-the adapter requires `result.replacement` to be present and sets:
-
-~~~text
-output.output = result.replacement
-~~~
-
-For:
-
-~~~text
-passthrough
-failed_open
-protocol/process failure
-timeout
-unsupported schema
-~~~
-
-the adapter preserves the original output. Passthrough and failed-open responses do not echo the original payload across the subprocess boundary.
+For passthrough, failed-open, exceptions, or invalid results, the adapter keeps the original output it already owns.
 
 ## 23.4 Adapter metadata
 
-The initial adapter MUST NOT attach HuGR-Lean metadata until an integration test proves that the chosen metadata path is not model-visible and does not alter host persistence semantics.
-
-After that proof, it MAY attach:
-
-~~~text
-hugrLean:
-  decision
-  profile
-  inputBytes
-  outputBytes
-  savedBytes
-  engineVersion
-~~~
-
-`rawRef` remains excluded by default because it can identify sensitive local evidence.
-
-When raw retention is enabled, an adapter may claim raw-recovery support only if it has an explicit non-model-visible way to surface the reference, such as:
-
-- host metadata proven by integration test to be non-model-visible; or
-- explicit local debug/log output requested by the user.
-
-Otherwise that adapter MUST treat raw recovery as unavailable even though the core capability exists.
+HuGR-Lean diagnostics MAY be attached only to a proven non-model-visible host surface. They are absent by default.
 
 ## 23.5 No attachment mutation
 
-The v1 adapter MUST NOT modify tool attachments.
+Attachments/non-text payloads are outside initial text filtering and remain untouched.
 
 ## 23.6 Native host truncation
 
-OpenCode may truncate shell output before `tool.execute.after`.
-
-v1 MAY filter only the exposed `output.output`.
-
-Reading a host-provided full-output path is a separate adapter capability and MUST be independently tested before enabling.
+Metrics and evidence remain relative to the text actually delivered to the adapter. HuGR-Lean does not claim savings on bytes the host truncated before the hook.
 
 ## 23.7 Capability verification
 
-The initial supported OpenCode release is exactly `v1.18.32`.
-
-A wider compatibility range may be advertised only after integration tests cover the additional releases.
-
-Installation or startup SHOULD expose a `doctor` check that verifies:
-
-- supported OpenCode release/range;
-- HuGR-Lean binary availability;
-- protocol compatibility.
-
-The adapter MUST NOT infer that a hook is functional solely because its TypeScript type exists.
+Compatibility claims require an integration test proving that hook mutation reaches the model-visible result on the advertised OpenCode release.
 
 ---
 
 # 24. Host adapter contract
 
-Every adapter MUST implement these obligations:
+Every host adapter MUST:
 
-1. preserve original output in memory until HuGR-Lean successfully returns;
-2. normalize only facts it actually knows;
-3. set presentation hints conservatively;
-4. enforce a subprocess timeout;
-5. fail open on process/protocol errors;
-6. avoid forwarding arbitrary secrets/metadata;
-7. apply only a schema-valid `normalized/reduced + replacement` result;
-8. expose truthful capability/compatibility information;
-9. keep host-specific logic outside reducers;
-10. invoke the HuGR-Lean executable directly, never through a shell;
-11. wrap the entire hook body in a no-throw fail-open boundary;
-12. avoid top-level/plugin-load failure when the binary is missing or invalid;
-13. strictly validate response schema/version/decision consistency before mutation;
-14. bypass the subprocess when `HUGR_LEAN_DISABLED=1`;
-15. bypass filtering for boundary output above the protocol hard input maximum.
+1. retain the original tool output until filtering returns a valid replacement;
+2. map only trusted host facts into `ObservationV1`;
+3. call the local core directly, without shell/process indirection;
+4. catch all HuGR-Lean exceptions at the adapter boundary;
+5. apply only validated `normalized/reduced + replacement` results;
+6. leave passthrough/failed-open output unchanged;
+7. avoid forwarding arbitrary host secrets/metadata into the core;
+8. keep attachments/non-text payloads unchanged unless separately specified;
+9. support a disabled fast path that does not invoke filtering;
+10. never turn a successful host tool call into a failed host tool call because HuGR-Lean failed.
 
-A HuGR-Lean adapter failure MUST NOT turn a successful host tool call into a failed host tool call.
-
-Adapters MAY bypass HuGR-Lean for non-text/binary results.
+Adapters MAY bypass text filtering for non-text payloads or boundary output beyond the active hard limit.
 
 ---
 
-# 25. Adapter process timeout
+# 25. Adapter execution budget
 
-Default one-shot engine deadline:
+There is no subprocess timeout in the TypeScript runtime.
 
-~~~text
-250 ms
-~~~
+The adapter/core call is synchronous and local for v1.
 
-This is a fail-open ceiling, not the acceptable performance target.
+Performance is enforced through benchmark budgets and input bounds rather than process-kill mechanics.
 
-If exceeded:
-
-1. terminate/abandon the filter process;
-2. preserve original host output;
-3. record adapter-side timeout diagnostics;
-4. do not retry inside the same tool result.
-
-Valid future config range SHOULD remain bounded.
+If future profile work introduces asynchronous I/O, that is a specification change; the current core performs no network/filesystem work during filtering.
 
 ---
 
@@ -1367,38 +1268,31 @@ A broad interactive CLI is not required.
 
 ## 27.1 Core reducer failure
 
-~~~text
-profile error
-→ failed_open
-→ replacement = None
-→ adapter retains its original boundary output
-~~~
+Analysis/render failure returns `failed_open` with no replacement.
 
 ## 27.2 Preservation failure
 
-Same as reducer failure.
+Missing mandatory evidence or profile validation failure returns `failed_open` with no replacement.
 
-A preservation failure is release-significant and SHOULD be observable in non-model diagnostics.
+## 27.3 Core exception
 
-## 27.3 Binary crash
+The adapter catches an unexpected core exception and preserves the original host output.
 
-Adapter preserves original output.
+## 27.4 Invalid observation/result
 
-## 27.4 Protocol mismatch
-
-Adapter preserves original output.
+Schema/invariant validation failure preserves the original host output. No serialized process-protocol recovery path exists in v1.
 
 ## 27.5 Unsupported profile version/shape
 
-Core returns no replacement unless a previously validated SafeNormalization result independently qualifies as `normalized`; otherwise the adapter-owned input remains authoritative.
+Known identity plus unsupported/unrecognized shape resolves conservatively to the SafeNormalization baseline or passthrough.
 
 ## 27.6 Raw-store failure
 
-Filtering may still succeed because raw is not a correctness dependency.
+Raw storage failure MUST NOT change filtering correctness. Recovery remains optional defense-in-depth.
 
 ## 27.7 Metrics failure
 
-Filtering correctness wins; metrics may be unavailable.
+Metrics are calculated mechanically from UTF-8 byte lengths. If internal result validation detects inconsistent metrics, the adapter preserves the original output.
 
 ---
 
@@ -1446,65 +1340,52 @@ Normal reducers SHOULD be O(n) or O(n log n) in boundary-input size.
 
 Quadratic scans on untrusted tool output are prohibited.
 
-Regexes MUST be compatible with Rust's linear-time regex engine semantics.
+Regexes over untrusted tool output MUST avoid catastrophic-backtracking patterns. Prefer anchored/simple expressions or explicit linear scans when input size is attacker-controlled.
 
 ---
 
 # 30. Performance budget
 
-Reference benchmark hardware will be recorded by WP8.
+Performance budgets now measure the in-process TypeScript path.
 
-The following are **initial performance budgets**, chosen to prevent architecture from normalizing large overhead before measurements exist. They are reviewable by evidence, not aspirational marketing claims.
-
-Release targets:
+Initial guardrails:
 
 ### Core in-process
 
-| Input size | p95 target |
-|---|---:|
-| ≤ 256 KiB | ≤ 5 ms |
-| ≤ 1 MiB | ≤ 25 ms |
+~~~text
+<= 256 KiB: p95 <= 5 ms
+<=   1 MiB: p95 <= 25 ms
+~~~
 
-### OpenCode adapter end-to-end including process startup
+### OpenCode adapter end-to-end
 
-| Input size | p95 target |
-|---|---:|
-| ≤ 256 KiB | ≤ 25 ms |
-| ≤ 1 MiB | ≤ 60 ms |
+~~~text
+<= 256 KiB: p95 <= 10 ms
+<=   1 MiB: p95 <= 35 ms
+~~~
 
-The adapter hard deadline remains 250 ms.
+These remain engineering budgets, not published claims, until benchmark evidence exists.
 
-Because OpenCode v1.18.32 normally bounds tool output to 50 KiB, the ≤256 KiB row is the primary first-adapter budget.
+If budgets fail, optimization order is:
 
-A release may revise these numbers only with recorded benchmark evidence and explicit spec change.
+1. profile/primitive algorithmic review;
+2. remove avoidable copies/regex work;
+3. benchmark V8/Node hot paths;
+4. only then consider a different runtime mechanism backed by evidence.
 
-If process startup is the dominant violation, optimization order is:
-
-1. build/profile Rust binary;
-2. reduce protocol overhead;
-3. investigate host-native process APIs;
-4. only then consider a persistent worker or embedding technology.
-
-No daemon/N-API/WASM optimization is permitted preemptively.
+A native addon, worker process, daemon, or alternate implementation language requires a new ADR.
 
 ---
 
 # 31. Concurrency
 
-The one-shot binary is stateless for filtering.
+The filtering core is stateless per call.
 
-Therefore v1 core filtering requires no shared mutable runtime state.
+Profiles are registered at engine construction and treated as read-only during processing.
 
-Optional raw storage is cross-process state and MUST use collision-resistant artifact IDs plus create-new semantics.
+Therefore normal filtering requires no shared mutable runtime state, locks, daemon coordination, or worker lifecycle.
 
-Cleanup races are acceptable if they result only in:
-
-- artifact already removed;
-- artifact unavailable.
-
-They MUST NOT cause arbitrary file deletion or corrupt another artifact.
-
-A global database lock is not introduced.
+Optional raw-store concurrency is specified separately under the raw-store section.
 
 ---
 
@@ -1522,11 +1403,11 @@ Reducers MUST NOT:
 - follow URLs;
 - invoke network services.
 
-## 32.2 Command string and subprocess invocation
+## 32.2 Command string handling
 
-Command recognition parses command text but never executes or expands it.
+Command recognition parses command text as data and never executes or expands it.
 
-Adapters MUST spawn the fixed HuGR-Lean binary path directly with argv. The observed tool command is transferred only as JSON data on stdin; it is never interpolated into a shell command.
+HuGR-Lean v1 spawns no filtering subprocess. The observed command string is passed only as an in-memory value and is never interpolated into a shell command.
 
 ## 32.3 Raw data
 
