@@ -263,16 +263,16 @@ Protocol V1 carries only facts the core can use safely.
 
 Conceptual schema:
 
-~~~rust
-struct ObservationV1 {
-    schema_version: u16,          // MUST be 1
-    source: SourceV1,
-    command: Option<String>,     // shell command when applicable; bounded
-    shell_dialect: ShellDialectV1,
-    output: String,              // exact UTF-8 boundary text
-    termination: TerminationV1,
-    completeness: CompletenessV1,
-    presentation: PresentationV1,
+~~~ts
+interface ObservationV1 {
+  schema_version: 1
+  source: SourceV1
+  command: string | null
+  shell_dialect: ShellDialectV1
+  output: string
+  termination: TerminationV1
+  completeness: CompletenessV1
+  presentation: PresentationV1
 }
 ~~~
 
@@ -343,15 +343,15 @@ A shell-like tool by itself is **not** sufficient evidence.
 
 ## 6.4 FilterResultV1
 
-~~~rust
-struct FilterResultV1 {
-    schema_version: u16,
-    decision: DecisionV1,
-    replacement: Option<String>,
-    profile: Option<String>,
-    metrics: MetricsV1,
-    raw_ref: Option<String>,
-    diagnostics: Vec<DiagnosticCodeV1>,
+~~~ts
+interface FilterResultV1 {
+  schema_version: 1
+  decision: DecisionV1
+  replacement: string | null
+  profile: string | null
+  metrics: MetricsV1
+  raw_ref: string | null
+  diagnostics: DiagnosticCodeV1[]
 }
 ~~~
 
@@ -373,7 +373,7 @@ Response consistency is strict:
 | `passthrough` | MUST be `None` |
 | `failed_open` | MUST be `None` |
 
-The adapter already owns the original output. Echoing it back for passthrough/fail-open would waste memory, IPC, and serialization.
+The adapter already owns the original output. Echoing it back for passthrough/fail-open would duplicate memory and weaken the simple caller-owned fallback contract.
 
 ### Diagnostics
 
@@ -646,16 +646,19 @@ The recognizer never executes shell syntax, expands variables, reads aliases, in
 
 Conceptually:
 
-~~~rust
-trait Profile {
-    fn id(&self) -> &'static str;
-    fn recognize(&self, ctx: &RouteContext) -> Match;
-    fn analyze(&self, ctx: &ProfileContext) -> Result<Analysis, ProfileError>;
-    fn render(&self, analysis: &Analysis, out: &mut LeanWriter) -> Result<(), ProfileError>;
+~~~ts
+interface Profile {
+  descriptor(): ProfileDescriptor
+  requirements?(): ProfileRequirements
+  recognize(identity: InvocationIdentity): ProfileMatch
+  shapeGuard?(ctx: RouteContext): ProfileMatch
+  analyze(ctx: ProfileContext): AnalysisBundle
+  render(analysis: unknown, out: LeanWriter): void
+  validate?(analysis: unknown, rendered: RenderedOutput): void
 }
 ~~~
 
-Concrete Rust types may refine this API but MUST preserve the separation:
+Concrete TypeScript types may refine this API but MUST preserve the separation:
 
 ~~~text
 recognize → analyze → render
@@ -663,10 +666,10 @@ recognize → analyze → render
 
 Every profile MUST also declare input requirements equivalent to:
 
-~~~rust
-struct ProfileRequirements {
-    completeness: CompletenessRequirement, // Any | Complete
-    termination: TerminationRequirement,   // Any | Exited
+~~~ts
+interface ProfileRequirements {
+  completeness: "any" | "complete"
+  termination: "any" | "exited"
 }
 ~~~
 
@@ -720,18 +723,18 @@ Profile analysis produces:
 
 Conceptually, signal construction is restricted:
 
-~~~rust
-struct Signal {
-    id: SignalId,
-    canonical_text: String,
-    evidence: EvidenceRef,
+~~~ts
+interface Signal {
+  id: SignalId
+  canonical_text: string
+  evidence: EvidenceRef
 }
 
-enum EvidenceRef {
-    InputSpan { start_byte: usize, end_byte: usize },
-    OutcomeField,
-    Derived { rule_id: &'static str, source_spans: Vec<ByteSpan> },
-}
+type EvidenceRef =
+  | { kind: "input_span"; span: ByteSpan }
+  | { kind: "outcome_field"; field: OutcomeField }
+  | { kind: "canonicalized"; rule_id: string; source_span: ByteSpan }
+  | { kind: "derived"; rule_id: string; source_spans: ByteSpan[] }
 ~~~
 
 Input spans are UTF-8 byte ranges over the analysis baseline and MUST end on valid character boundaries.
@@ -741,10 +744,10 @@ Profiles do not receive a public "arbitrary Signal fields" constructor.
 The implementation SHOULD expose constructors equivalent to:
 
 ~~~text
-Signal::verbatim(span)
-Signal::canonicalized(span, rule_id)
-Signal::from_outcome(field)
-Signal::derived(rule_id, source_spans, mechanically_computed_text)
+context.verbatimSignal(id, span)
+context.canonicalizedSignal(id, span, rule)
+context.outcomeSignal(id, field)
+context.derivedCountSignal(id, rule_id, source_spans)
 ~~~
 
 A signal MUST NOT be created from unconstrained profile-authored prose.
@@ -757,14 +760,15 @@ Profiles MUST render through a small writer abstraction.
 
 Conceptual operations:
 
-~~~rust
-out.static_text(...)   // compile-time/static labels and punctuation only
-out.signal(&signal)    // data-bearing preserved evidence
-out.derived(...)       // mechanically derived data with rule provenance
+~~~ts
+out.literal`static label`       // tagged template, no interpolation
+out.literalLine`static label`
+out.signal(signal)                // data-bearing preserved evidence
+out.derived(derivedEvidence)      // mechanically derived data
 out.newline()
 ~~~
 
-Dynamic observation-derived text MUST NOT be emitted through `static_text`.
+Static prose MUST use tagged-template syntax with zero interpolations. Dynamic observation-derived text MUST NOT enter through the literal path.
 
 `signal()`:
 
@@ -1037,11 +1041,11 @@ Recovery remains independent from filtering success.
 
 ## 21.1 Mandatory per-result metrics
 
-~~~rust
-struct MetricsV1 {
-    input_bytes: u64,
-    output_bytes: u64,
-    saved_bytes: u64,
+~~~ts
+interface MetricsV1 {
+  input_bytes: number
+  output_bytes: number
+  saved_bytes: number
 }
 ~~~
 
@@ -1624,15 +1628,11 @@ A future project-local config MAY exist only if there is a concrete use case for
 
 # 39. Logging
 
-Default core behavior is quiet.
+Default core behavior is quiet and performs no direct console output.
 
-Diagnostics go to stderr only when:
+Adapters MAY expose explicit local debug logging on a non-model-visible surface.
 
-- requested by human CLI;
-- adapter enables explicit debug mode;
-- protocol failure prevents a structured result.
-
-When raw retention is explicitly enabled, debug mode MAY print the opaque raw reference locally. It MUST NOT print raw content unless the user explicitly invokes `hugr-lean raw <id>`.
+When raw retention is explicitly enabled, debug tooling MAY expose the opaque raw reference locally. Raw content is returned only through an explicit recovery action.
 
 Normal filtering MUST NOT generate context-visible chatter.
 
