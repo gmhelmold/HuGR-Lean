@@ -44,9 +44,6 @@ export {
 export {
   ANY_REQUIREMENTS,
   COMPLETE_EXITED,
-  EngineBuildError as _unused,
-} from "./engine.js";
-export {
   ProfileContext,
   ProfileRegistry,
   ProfileRegistryError,
