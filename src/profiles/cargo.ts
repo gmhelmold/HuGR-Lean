@@ -122,18 +122,27 @@ export class CargoBuildProfile implements Profile {
   }
 
   shapeGuard(context: RouteContext): ProfileMatch {
-    return cargoBuildDiagnosticSpan(context.safe_baseline) === null
+    return cargoBuildShape(context.safe_baseline) === null
       ? "no_match"
       : "match";
   }
 
   analyze(context: ProfileContext): AnalysisBundle {
-    const span = cargoBuildDiagnosticSpan(context.safe_baseline);
-    if (span === null) {
-      throw new Error("unsupported cargo build output shape");
+    const shape = cargoBuildShape(context.safe_baseline);
+    if (
+      shape === null ||
+      !cargoBuildOutcomeConsistent(
+        shape.hasError,
+        context.observation.termination.code,
+      )
+    ) {
+      throw new Error("unsupported or contradictory cargo build output");
     }
 
-    const diagnostics = context.verbatimSignal(BUILD_DIAGNOSTICS_ID, span);
+    const diagnostics = context.verbatimSignal(
+      BUILD_DIAGNOSTICS_ID,
+      shape.span,
+    );
     return {
       data: Object.freeze({ diagnostics }) satisfies CargoBuildAnalysis,
       preservation: PreservationContract.require(BUILD_DIAGNOSTICS_ID),
@@ -183,10 +192,15 @@ interface LineRecord {
 
 function parseCargoTestShape(input: string): ParsedCargoTest | null {
   const lines = lineRecords(input);
-  const summaryIndex = findLastIndex(lines, (line) =>
-    line.text.startsWith("test result: "),
-  );
-  if (summaryIndex < 0) {
+  const summaryIndexes = lines
+    .map((line, index) => (line.text.startsWith("test result: ") ? index : -1))
+    .filter((index) => index >= 0);
+  if (summaryIndexes.length !== 1) {
+    return null;
+  }
+
+  const summaryIndex = summaryIndexes[0];
+  if (summaryIndex === undefined || summaryIndex !== lines.length - 1) {
     return null;
   }
 
@@ -254,16 +268,23 @@ function parseCargoTestShape(input: string): ParsedCargoTest | null {
   if (failedCount === null) {
     return null;
   }
+
+  const summaryStatus = summaryLine.text.startsWith("test result: ok.")
+    ? "ok"
+    : "FAILED";
+  if (
+    (summaryStatus === "ok" && failedCount !== 0) ||
+    (summaryStatus === "FAILED" && failedCount === 0)
+  ) {
+    return null;
+  }
+
   if (failedCount > 0 && failures.length !== failedCount) {
     return null;
   }
   if (failedCount === 0 && failures.length !== 0) {
     return null;
   }
-
-  const summaryStatus = summaryLine.text.startsWith("test result: ok.")
-    ? "ok"
-    : "FAILED";
 
   return {
     failures,
@@ -285,28 +306,54 @@ function cargoTestOutcomeConsistent(
   return status === "ok" ? exitCode === 0 : exitCode !== 0;
 }
 
-function cargoBuildDiagnosticSpan(input: string): ByteSpan | null {
+interface CargoBuildShape {
+  readonly span: ByteSpan;
+  readonly hasError: boolean;
+}
+
+function cargoBuildShape(input: string): CargoBuildShape | null {
   const lines = lineRecords(input);
-  const firstDiagnostic = lines.find(
+  const firstDiagnosticIndex = lines.findIndex(
     (line) =>
       line.text.startsWith("error[") ||
       line.text.startsWith("error:") ||
       line.text.startsWith("warning:") ||
       line.text.startsWith("warning["),
   );
-  if (firstDiagnostic === undefined) {
+  if (firstDiagnosticIndex < 0) {
     return null;
   }
 
+  const firstDiagnostic = lines[firstDiagnosticIndex];
   const last = lines.at(-1);
-  if (last === undefined) {
+  if (firstDiagnostic === undefined || last === undefined) {
     return null;
   }
+
+  const hasError = lines
+    .slice(firstDiagnosticIndex)
+    .some(
+      (line) =>
+        line.text.startsWith("error[") || line.text.startsWith("error:"),
+    );
 
   return {
-    start_byte: firstDiagnostic.startByte,
-    end_byte: last.endWithNewlineByte,
+    span: {
+      start_byte: firstDiagnostic.startByte,
+      end_byte: last.endWithNewlineByte,
+    },
+    hasError,
   };
+}
+
+function cargoBuildOutcomeConsistent(
+  hasError: boolean,
+  exitCode: number | null,
+): boolean {
+  if (exitCode === null) {
+    return false;
+  }
+  return hasError ? exitCode !== 0 : exitCode === 0;
 }
 
 function isCargoTestSummary(line: string): boolean {
@@ -356,19 +403,6 @@ function lineRecords(input: string): LineRecord[] {
   }
 
   return records;
-}
-
-function findLastIndex<T>(
-  values: readonly T[],
-  predicate: (value: T) => boolean,
-): number {
-  for (let index = values.length - 1; index >= 0; index -= 1) {
-    const value = values[index];
-    if (value !== undefined && predicate(value)) {
-      return index;
-    }
-  }
-  return -1;
 }
 
 function cargoTestAnalysis(value: unknown): CargoTestAnalysis {
