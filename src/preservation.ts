@@ -181,11 +181,11 @@ export class LeanWriter {
   #signalIds = new Set<SignalId>();
   #derived: DerivedRecord[] = [];
 
-  literal(strings: TemplateStringsArray, ...values: readonly unknown[]): void {
+  literal(strings: TemplateStringsArray, ...values: never[]): void {
     this.#appendLiteral(strings, values);
   }
 
-  literalLine(strings: TemplateStringsArray, ...values: readonly unknown[]): void {
+  literalLine(strings: TemplateStringsArray, ...values: never[]): void {
     this.#appendLiteral(strings, values);
     this.newline();
   }
