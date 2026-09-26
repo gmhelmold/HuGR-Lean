@@ -1,11 +1,11 @@
 # HuGR-Lean — Technical Specification
 
 **Document ID:** HL-SPEC-001  
-**Version:** 1.0  
+**Version:** 1.1  
 **Status:** Approved Technical Specification  
-**Review state:** Adversarial review 01 passed; all Critical/High findings closed  
+**Review state:** TypeScript runtime amendment #72; G-E1 revalidation pending  
 **Normative parent:** HL-PLAN-001 v1.1  
-**Date:** 2026-09-24  
+**Date:** 2026-09-25  
 **Scope:** Concrete architecture and technical mechanisms required to refine the Formal Project Plan
 
 ---
@@ -72,50 +72,50 @@ All copied or materially derived donor code remains subject to HL-PLAN-001 prove
 
 # 2. Architecture decisions
 
-## ADR-T01 — Rust core
+## ADR-T01 — TypeScript local core
 
-The filtering engine MUST be implemented in Rust.
+The filtering engine MUST be implemented as a local TypeScript module.
 
 Rationale:
 
-- all three primary donors are Rust;
-- direct lawful code/fixture harvesting is simpler;
-- deterministic text processing is straightforward;
-- native startup and processing overhead are low;
-- one binary can support multiple hosts;
-- no host runtime becomes the product architecture;
-- Rust supports macOS x86_64, which is a required development target.
+- HuGR-Lean is deterministic text processing, not a compute-heavy service;
+- the initial supported host is already JavaScript/TypeScript-native;
+- in-process filtering removes process startup, IPC, binary discovery, and cross-compilation;
+- a single package is easier to install, audit, contribute to, and publish as free open source;
+- the safety model depends on contracts/fixtures, not on native-code memory safety;
+- no platform-specific runtime artifact is needed.
 
-This decision does not imply a multi-crate architecture.
+The runtime architecture MUST NOT depend on Rust, a native binary, a daemon, or a subprocess.
 
-## ADR-T02 — Single Rust package
+## ADR-T02 — Single package
 
-The repository SHOULD begin as one Rust package containing both:
+The repository SHALL remain one TypeScript package until a concrete release or dependency boundary justifies a split.
 
-~~~text
-src/lib.rs     reusable engine
-src/main.rs    protocol/CLI entry point
-~~~
-
-A workspace split is prohibited until a concrete dependency or release boundary justifies it.
+Core, profiles, fixtures, and the first host integration may coexist in the same package. Empty workspace/package decomposition is prohibited.
 
 ## ADR-T03 — Thin host adapters
 
-Host-specific integration MUST remain outside the core.
+Host-specific integration MUST remain outside reducer logic.
 
-Adapters normalize host data into `ObservationV1`, invoke the core, and apply `FilterResultV1`.
+Adapters normalize host data into `ObservationV1`, call the local core function, and apply `FilterResultV1`.
 
 An adapter MUST NOT reimplement reducers.
 
-## ADR-T04 — One-shot process boundary for plugin hosts
+## ADR-T04 — In-process host boundary
 
-The initial OpenCode plugin SHALL invoke the HuGR-Lean binary as a one-shot subprocess for each eligible tool result.
+The initial OpenCode integration SHALL call HuGR-Lean in-process.
 
-Communication uses versioned JSON over stdin/stdout.
+~~~text
+tool result
+  -> adapter maps ObservationV1
+  -> filter(observation)
+  -> FilterResultV1
+  -> adapter applies replacement when valid
+~~~
 
-No daemon, socket server, background process, N-API module, dynamic library, or WASM bridge is introduced in v1.
+No subprocess, stdin/stdout IPC, binary lookup, daemon, socket server, N-API, WASM bridge, or dynamic library is part of v1.
 
-A faster embedding mechanism MAY be considered only if benchmark evidence shows the process boundary violates the performance budget.
+`Protocol V1` remains the versioned semantic data contract between adapter and core. JSON serialization is optional interoperability/debug tooling, not the normal runtime transport.
 
 ## ADR-T05 — Post-processing only
 
@@ -135,7 +135,7 @@ Optional aggregate persistence, if ever added, requires a separate scope decisio
 
 ## ADR-T07 — No model-visible telemetry
 
-Savings messages, reducer names, debug markers, raw IDs, and HuGR-Lean branding MUST NOT be appended to the model-visible tool text by default.
+Savings messages, reducer names, debug markers, raw IDs, and HuGR-Lean branding MUST NOT be appended to model-visible tool text by default.
 
 Telemetry belongs in adapter metadata/logging, not model context.
 
@@ -144,60 +144,26 @@ Telemetry belongs in adapter metadata/logging, not model context.
 # 3. High-level component model
 
 ~~~text
-┌─────────────────────────────────────────────────────────────┐
-│ Host                                                        │
-│  OpenCode / future host                                     │
-│                                                             │
-│  tool result                                                │
-│      │                                                      │
-│      ▼                                                      │
-│  ┌──────────────────┐                                       │
-│  │ Host Adapter     │                                       │
-│  │ normalize facts  │                                       │
-│  └────────┬─────────┘                                       │
-└───────────┼─────────────────────────────────────────────────┘
-            │ ObservationV1 (JSON)
-            ▼
-┌─────────────────────────────────────────────────────────────┐
-│ HuGR-Lean                                                   │
-│                                                             │
-│  protocol decode                                            │
-│      │                                                      │
-│      ▼                                                      │
-│  SafeNormalization eligibility                              │
-│      │                                                      │
-│      ▼                                                      │
-│  command/tool identity                                      │
-│      │                                                      │
-│      ▼                                                      │
-│  profile router                                             │
-│      │                                                      │
-│      ├─ unknown ────────────────┐                            │
-│      │                          │                            │
-│      ▼                          │                            │
-│  profile analysis              │                            │
-│      │                          │                            │
-│      ▼                          │                            │
-│  deterministic render          │                            │
-│      │                          │                            │
-│      ▼                          │                            │
-│  Preservation Contract         │                            │
-│      │                          │                            │
-│      ├─ fail ──→ fail-open ◀────┘                            │
-│      │                                                      │
-│      ▼                                                      │
-│  non-expansion guard                                       │
-│      │                                                      │
-│      ▼                                                      │
-│  FilterResultV1                                             │
-└───────────┬─────────────────────────────────────────────────┘
-            │ JSON
-            ▼
-┌─────────────────────────────────────────────────────────────┐
-│ Host Adapter                                                │
-│  mutate model-visible output only if result is valid        │
-│  attach non-model metadata if host supports it              │
-└─────────────────────────────────────────────────────────────┘
+Host tool result
+      │
+      ▼
+Host adapter
+  maps trusted host facts
+      │ ObservationV1
+      ▼
+HuGR-Lean TypeScript core (in-process)
+      │
+      ├─ SafeNormalization
+      ├─ command/tool identity
+      ├─ profile registry + routing
+      ├─ deterministic analysis/render
+      ├─ Preservation Contract validation
+      ├─ non-expansion guard
+      └─ fail-open
+      │ FilterResultV1
+      ▼
+Host adapter
+  mutates model-visible text only for valid normalized/reduced results
 ~~~
 
 ---
@@ -208,43 +174,24 @@ Initial target:
 
 ~~~text
 HuGR-Lean/
-├── Cargo.toml
-├── Cargo.lock
+├── package.json
+├── package-lock.json
+├── tsconfig.json
 ├── src/
-│   ├── lib.rs
-│   ├── main.rs
-│   ├── protocol.rs
-│   ├── engine.rs
-│   ├── observation.rs
-│   ├── normalize/
-│   │   ├── mod.rs
-│   │   ├── ansi.rs
-│   │   └── terminal.rs
-│   ├── command/
-│   │   ├── mod.rs
-│   │   └── simple_shell.rs
-│   ├── profile/
-│   │   ├── mod.rs
-│   │   ├── writer.rs
-│   │   └── <ecosystem modules>
-│   ├── primitive/
-│   │   └── <small reusable primitives>
-│   ├── raw/
-│   │   └── mod.rs
-│   └── metrics.rs
-├── adapters/
-│   └── opencode/
-│       ├── package.json
-│       ├── src/
-│       │   └── index.ts
-│       └── README.md
-├── fixtures/
-│   ├── generic/
+│   ├── index.ts
+│   ├── types.ts
+│   ├── engine.ts
+│   ├── command.ts
+│   ├── normalize.ts
+│   ├── preservation.ts
+│   ├── primitive.ts
+│   ├── profile.ts
 │   └── profiles/
-├── benches/
+├── fixtures/
 ├── docs/
 │   ├── PROJECT_PLAN.md
 │   ├── TECHNICAL_SPEC.md
+│   ├── decisions/
 │   ├── reviews/
 │   └── provenance/
 └── tests/
@@ -252,7 +199,7 @@ HuGR-Lean/
 
 This is a target shape, not permission to create empty directories prematurely.
 
-A directory SHOULD be created when its first real file exists.
+A directory SHOULD be created only when its first real file exists.
 
 ---
 
@@ -260,64 +207,55 @@ A directory SHOULD be created when its first real file exists.
 
 ## 5.1 Production dependencies
 
-The first implementation SHOULD target a very small runtime dependency set.
+The core SHOULD have zero production dependencies.
 
-Expected baseline:
+Use platform/runtime primitives for strings, UTF-8 byte accounting, collections, filesystem, and JSON.
 
-- `serde`;
-- `serde_json`;
-- `regex` only where regex materially simplifies a safe parser;
-- `toml` for the small user configuration file;
-- `getrandom` for collision-resistant raw-artifact IDs;
-- standard library for filesystem, time, process, collections, and I/O.
-
-Additional production dependencies require the dependency-budget justification from HL-PLAN-001.
+A production dependency requires concrete justification under the HL-PLAN-001 dependency budget.
 
 ## 5.2 Explicitly rejected initial dependencies
 
 The core MUST NOT initially require:
 
-- async runtime;
+- async runtime/framework;
 - database client;
 - HTTP client;
 - tokenizer;
-- tree-sitter;
+- parser DSL/framework;
 - embedding library;
-- tracing backend;
-- plugin framework;
-- shell execution framework.
+- native addon;
+- subprocess wrapper;
+- plugin framework.
 
 ## 5.3 Development-only dependencies
 
-Property/fuzz/benchmark tooling MAY be introduced as dev dependencies without becoming runtime dependencies.
+TypeScript compiler, test runner, fixture TOML parser, property/fuzz tooling, and benchmark tooling MAY be development-only dependencies.
+
+Development tooling MUST NOT become a runtime requirement for installed filtering.
 
 ---
 
 # 6. Protocol
 
-## 6.1 Transport
+## 6.1 In-process contract
 
-The binary protocol is one-shot:
+`Protocol V1` is a semantic contract, not a required wire protocol.
 
-~~~text
-stdin  → exactly one JSON request
-stdout → exactly one JSON response
-stderr → human/debug diagnostics only
-exit 0 → protocol exchange completed, including passthrough/failed_open
-nonzero → protocol/bootstrap failure; adapter MUST fail open
+The normal v1 call path is:
+
+~~~ts
+const result = filter(observation)
 ~~~
 
-Model-visible tool content MUST NOT be written directly to stderr.
+The caller already owns the original tool output. Core exceptions or invalid results MUST cause the adapter to preserve that original output.
 
-## 6.2 Protocol command
+JSON encoding MAY be used in tests, debugging, or future cross-process adapters, but the local OpenCode path MUST NOT serialize/deserialize merely to call the core.
 
-Initial machine interface:
+## 6.2 Versioning
 
-~~~text
-hugr-lean filter --protocol 1
-~~~
+`schema_version = 1` remains the compatibility marker for `ObservationV1` and `FilterResultV1`.
 
-Human CLI syntax may evolve, but Protocol V1 is stable within major version 1.
+The semantic schema is stable within major version 1. No CLI/process command is required for normal filtering.
 
 ## 6.3 ObservationV1
 
