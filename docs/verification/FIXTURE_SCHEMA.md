@@ -61,11 +61,11 @@ notes = ""
 primitive = "strip_sgr" # strip_sgr | collapse_carriage_redraws
 ~~~
 
-The Rust verification harness implements this metadata contract in `tests/support/fixture.rs`.
+The TypeScript verification harness implements this metadata contract in `tests/support/fixture.ts`.
 
 For `kind = "normalization"`, the `[normalization]` section is mandatory. For every other fixture kind it is forbidden. Normalization fixtures execute one primitive in isolation; engine composition remains a separate verification layer.
 
-Fixture TOML is intentionally distinct from the Protocol V1 JSON wire representation. The loader maps this compact metadata into `ObservationV1`, then runs the real engine.
+Fixture TOML is intentionally distinct from the in-process Protocol V1 TypeScript representation. The loader maps this compact metadata into `ObservationV1`, then runs the real engine.
 
 ## Semantics
 
