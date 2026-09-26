@@ -153,7 +153,9 @@ function matchesGoTestVerbose(identity: InvocationIdentity): boolean {
     return false;
   }
 
-  return args.some((arg) => arg === "-v");
+  const argsSeparator = args.indexOf("-args");
+  const goArgs = argsSeparator < 0 ? args : args.slice(0, argsSeparator);
+  return goArgs.some((arg) => arg === "-v");
 }
 
 function isUnsupportedGoTestMode(arg: string): boolean {
