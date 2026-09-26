@@ -60,8 +60,9 @@ export class Engine {
     }
   }
 
-  process(observation: ObservationV1): FilterResultV1 {
-    validateObservationV1(observation);
+  process(inputObservation: ObservationV1): FilterResultV1 {
+    validateObservationV1(inputObservation);
+    const observation = snapshotObservation(inputObservation);
 
     const inputBytes = utf8Bytes(observation.output);
     if (inputBytes > this.#config.max_input_bytes) {
@@ -83,11 +84,11 @@ export class Engine {
         : observation.output;
 
     const identity = identifyInvocation(observation);
-    const routeContext = {
+    const routeContext = Object.freeze({
       observation,
       identity,
       safe_baseline: safeBaseline,
-    };
+    });
 
     const matches: ReturnType<ProfileRegistry["entries"]>[number][] = [];
     try {
@@ -254,4 +255,15 @@ function checked(result: FilterResultV1): FilterResultV1 {
     throw error;
   }
   return result;
+}
+
+
+function snapshotObservation(observation: ObservationV1): ObservationV1 {
+  const termination = Object.freeze({ ...observation.termination });
+  const snapshot: ObservationV1 = {
+    ...observation,
+    termination,
+  };
+  Object.freeze(snapshot);
+  return snapshot;
 }
