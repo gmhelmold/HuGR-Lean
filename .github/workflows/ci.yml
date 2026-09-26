@@ -19,6 +19,8 @@ jobs:
           node-version: "24"
       - name: Install dev dependencies
         run: npm install --ignore-scripts
+      - name: Lockfile evidence
+        run: cat package-lock.json
       - name: Typecheck
         run: npm run typecheck
       - name: Test
