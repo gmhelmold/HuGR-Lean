@@ -173,7 +173,17 @@ function matchesCargoSubcommand(
     identity.kind === "shell" &&
     identity.recognition.kind === "direct" &&
     identity.recognition.identity.program === "cargo" &&
-    identity.recognition.identity.args[0] === subcommand
+    identity.recognition.identity.args[0] === subcommand &&
+    !hasMessageFormatOverride(identity.recognition.identity.args)
+  );
+}
+
+function hasMessageFormatOverride(args: readonly string[]): boolean {
+  return args.some(
+    (arg, index) =>
+      arg === "--message-format" ||
+      arg.startsWith("--message-format=") ||
+      (index > 0 && args[index - 1] === "--message-format"),
   );
 }
 
@@ -384,9 +394,10 @@ function lineRecords(input: string): LineRecord[] {
     const chunk = input.slice(codeUnitOffset, chunkEnd);
     const hasLf = chunk.endsWith("\n");
     const withoutLf = hasLf ? chunk.slice(0, -1) : chunk;
-    const content = withoutLf.endsWith("\r")
-      ? withoutLf.slice(0, -1)
-      : withoutLf;
+    const content =
+      hasLf && withoutLf.endsWith("\r")
+        ? withoutLf.slice(0, -1)
+        : withoutLf;
 
     const contentBytes = Buffer.byteLength(content, "utf8");
     const chunkBytes = Buffer.byteLength(chunk, "utf8");
