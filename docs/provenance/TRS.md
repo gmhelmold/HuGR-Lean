@@ -117,6 +117,8 @@ WP3.3 adds fixture bytes only from the same pinned TRS revision:
   ← `tests/fixture_data/pytest_with_error.txt`
 - `fixtures/python-pytest/pytest-xfail-donor/input.txt`
   ← `tests/fixture_data/pytest_with_xfail.txt`
+- `fixtures/python-pytest/pytest-v7-default-donor/input.txt`
+  ← `tests/fixture_data/pytest_real_default.txt`
 
 Source pin:
 `0175ae73f36709fd4a9242b2e431d026d6f82bb3`.
