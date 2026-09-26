@@ -140,11 +140,22 @@ function parsePytestShape(input: string): PytestShape | null {
     .map((line, index) => (line.text.length > 0 ? index : -1))
     .filter((index) => index >= 0);
 
-  const summaryIndex = nonEmptyIndexes.at(-1);
-  if (summaryIndex === undefined) {
+  const finalNonEmptyIndex = nonEmptyIndexes.at(-1);
+  if (finalNonEmptyIndex === undefined) {
     return null;
   }
 
+  const summaryIndexes = lines
+    .map((line, index) => (parsePytestSummary(line.text) === null ? -1 : index))
+    .filter((index) => index >= 0);
+  if (
+    summaryIndexes.length !== 1 ||
+    summaryIndexes[0] !== finalNonEmptyIndex
+  ) {
+    return null;
+  }
+
+  const summaryIndex = summaryIndexes[0];
   const summaryLine = lines[summaryIndex];
   if (summaryLine === undefined) {
     return null;
