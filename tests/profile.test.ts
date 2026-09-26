@@ -179,3 +179,35 @@ test("registry snapshots descriptor metadata after admission", () => {
   assert.equal(result.replacement, "ok");
   assert.equal(calls, 1);
 });
+
+
+test("registry rejects JavaScript descriptor enum/shape drift at runtime", () => {
+  const invalidBoundary: Profile = {
+    descriptor: () =>
+      ({
+        id: "bad-boundary",
+        family: "test",
+        fixture_family: "profile-framework",
+        boundary_assumption: "whatever",
+      }) as unknown as ProfileDescriptor,
+    recognize: () => "no_match",
+    analyze: () => ({ data: null, preservation: new PreservationContract() }),
+    render: () => {},
+  };
+  assert.throws(() => new ProfileRegistry([invalidBoundary]), ProfileRegistryError);
+
+  const extraField: Profile = {
+    descriptor: () =>
+      ({
+        id: "extra-field",
+        family: "test",
+        fixture_family: "profile-framework",
+        boundary_assumption: "native_text",
+        priority: 999,
+      }) as unknown as ProfileDescriptor,
+    recognize: () => "no_match",
+    analyze: () => ({ data: null, preservation: new PreservationContract() }),
+    render: () => {},
+  };
+  assert.throws(() => new ProfileRegistry([extraField]), ProfileRegistryError);
+});
