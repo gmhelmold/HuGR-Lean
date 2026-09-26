@@ -105,3 +105,22 @@ Source pin for all three:
 License: MIT. Notice retained at `docs/provenance/licenses/TRS-MIT.txt`.
 
 The HuGR-Lean Cargo profiles are newly authored TypeScript implementations under HuGR-Lean's own preservation and routing contracts.
+
+
+### WP3.3 Python/pytest fixture incorporation
+
+WP3.3 adds fixture bytes only from the same pinned TRS revision:
+
+- `fixtures/python-pytest/pytest-quiet-failure-donor/input.txt`
+  ← `tests/fixture_data/pytest_real_quiet.txt`
+- `fixtures/python-pytest/pytest-setup-error-donor/input.txt`
+  ← `tests/fixture_data/pytest_with_error.txt`
+- `fixtures/python-pytest/pytest-xfail-donor/input.txt`
+  ← `tests/fixture_data/pytest_with_xfail.txt`
+
+Source pin:
+`0175ae73f36709fd4a9242b2e431d026d6f82bb3`.
+
+License: MIT. Existing notice remains at `docs/provenance/licenses/TRS-MIT.txt`.
+
+The HuGR-Lean pytest parser/profile is newly authored TypeScript. No TRS parser, reducer, router, rewrite, or integration source code is copied.
