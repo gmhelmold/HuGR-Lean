@@ -5,9 +5,9 @@ import type {
 } from "./types.js";
 
 export interface CommandIdentity {
-  executable: string;
-  program: string;
-  args: string[];
+  readonly executable: string;
+  readonly program: string;
+  readonly args: readonly string[];
 }
 
 export type CommandRecognition =
@@ -18,20 +18,20 @@ export type InvocationIdentity =
   | { kind: "source"; source: SourceV1 }
   | { kind: "shell"; recognition: CommandRecognition };
 
-const COMPLEX: CommandRecognition = { kind: "complex_or_unknown" };
+const COMPLEX: CommandRecognition = Object.freeze({ kind: "complex_or_unknown" });
 
 export function identifyInvocation(observation: ObservationV1): InvocationIdentity {
   if (observation.source !== "shell") {
-    return { kind: "source", source: observation.source };
+    return Object.freeze({ kind: "source", source: observation.source });
   }
 
-  return {
+  return Object.freeze({
     kind: "shell",
     recognition:
       observation.command === null
         ? COMPLEX
         : recognizeShellCommand(observation.command, observation.shell_dialect),
-  };
+  });
 }
 
 export function recognizeShellCommand(
@@ -67,7 +67,7 @@ export function recognizeShellCommand(
     return COMPLEX;
   }
 
-  const args = tokens.slice(executableIndex + 1);
+  const args = Object.freeze(tokens.slice(executableIndex + 1));
   if (!args.every(isPortableBareToken)) {
     return COMPLEX;
   }
@@ -77,14 +77,15 @@ export function recognizeShellCommand(
     return COMPLEX;
   }
 
-  return {
+  const identity: CommandIdentity = Object.freeze({
+    executable,
+    program,
+    args,
+  });
+  return Object.freeze({
     kind: "direct",
-    identity: {
-      executable,
-      program,
-      args,
-    },
-  };
+    identity,
+  });
 }
 
 function skipPosixAssignments(tokens: readonly string[]): number {
