@@ -155,6 +155,39 @@ test("single matches and distinct-only paths do not manufacture a grouping", () 
   }
 });
 
+test("identical match lines are preserved individually, never deduplicated", () => {
+  const input = [
+    "src/main.ts:10:duplicate",
+    "src/main.ts:10:duplicate",
+    "src/main.ts:20:other",
+  ].join("\n");
+
+  const result = new Engine(undefined, searchProfiles()).process(
+    observation("rg duplicate src", input, exited(0)),
+  );
+
+  assert.equal(result.decision, "reduced");
+  assert.equal(
+    result.replacement?.split("10:duplicate").length,
+    3,
+  );
+});
+
+test("one unknown output line prevents partial grouping", () => {
+  const input = [
+    "src/main.ts:10:match one",
+    "IMPORTANT UNKNOWN SEARCH STATE",
+    "src/main.ts:20:match two",
+  ].join("\n");
+
+  const result = new Engine(undefined, searchProfiles()).process(
+    observation("rg match src", input, exited(0)),
+  );
+
+  assert.equal(result.decision, "passthrough");
+  assert.equal(result.replacement, null);
+});
+
 test("truncated and unknown execution state fail open for admitted rg shape", () => {
   const input = [
     "src/main.ts:10:match one",
