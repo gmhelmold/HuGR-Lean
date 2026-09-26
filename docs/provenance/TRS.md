@@ -84,3 +84,24 @@ MIT. Copied/substantial portions require preservation of the copyright and permi
 ## Audit conclusion
 
 TRS is the **best first fixture donor** for HuGR-Lean's target families and likely the best source for native-output parser edge cases. Its parser knowledge should be mined aggressively; its rewrite, generic-whitespace, prompt-injection and tracking surfaces should not be inherited.
+
+
+## Incorporated material
+
+WP3.2 incorporates **fixture bytes only**, not TRS runtime/parser source code.
+
+HuGR-Lean destinations:
+
+- `fixtures/rust-cargo/cargo-test-failure-donor/input.txt`
+  ← `tests/fixture_data/cargo_test_failures.txt`
+- `fixtures/rust-cargo/cargo-test-real-failures-donor/input.txt`
+  ← `tests/fixture_data/cargo_test_real_failures.txt`
+- `fixtures/rust-cargo/cargo-build-errors-donor/input.txt`
+  ← `tests/fixture_data/build_cargo_errors.txt`
+
+Source pin for all three:
+`0175ae73f36709fd4a9242b2e431d026d6f82bb3`.
+
+License: MIT. Notice retained at `docs/provenance/licenses/TRS-MIT.txt`.
+
+The HuGR-Lean Cargo profiles are newly authored TypeScript implementations under HuGR-Lean's own preservation and routing contracts.

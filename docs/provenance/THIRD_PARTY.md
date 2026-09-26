@@ -1,14 +1,14 @@
 # Third-Party Provenance Baseline
 
 **Phase:** E0  
-**Status:** research baseline; no donor source code or fixture bytes incorporated yet
+**Status:** active provenance register; TRS fixture bytes incorporated for WP3 profile verification
 
 This file is the top-level index for third-party material considered by HuGR-Lean.
 
 | Project | Pin | License | Current repository status | Detailed audit |
 |---|---|---|---|---|
 | RTK | `f5e104e117ab5b05c69d448103c28f1155e04417` | Apache-2.0 | research only; no source bytes copied yet; no repository `NOTICE` file at this pin | [RTK.md](RTK.md) |
-| TRS | `0175ae73f36709fd4a9242b2e431d026d6f82bb3` | MIT | research only; no source bytes copied yet | [TRS.md](TRS.md) |
+| TRS | `0175ae73f36709fd4a9242b2e431d026d6f82bb3` | MIT | selected native Cargo fixture bytes copied under `fixtures/rust-cargo/`; MIT notice retained in `docs/provenance/licenses/TRS-MIT.txt` | [TRS.md](TRS.md) |
 | CX | `b7c81334e63ba3c1adaafbd2773ca2b8049ae7ae` | MIT | research only; no source bytes copied yet | [CX.md](CX.md) |
 | LeanCTX | `edd9c55650de4622e3a0cc8696bcf4e9abba1a6a` | Apache-2.0 | selective research only; repository `NOTICE` exists at this pin | [ADJACENT.md](ADJACENT.md) |
 | context-compress | `59fae35a7b383876a34f84090f6da978e230795a` | MIT | selective research only | [ADJACENT.md](ADJACENT.md) |
@@ -31,8 +31,17 @@ Apache-2.0 material must additionally preserve applicable attribution notices an
 
 MIT material must preserve the copyright and permission notice for substantial copied portions.
 
-## E0 assertion
+## Incorporation status
 
-At completion of the E0 audit phase, HuGR-Lean contains **no copied donor code or donor fixture bytes**. The audit documents and synthetic seed fixtures are newly authored HuGR-Lean material.
+At E0 completion, no donor code or fixture bytes had been copied.
 
-This assertion must be updated immediately when the first donor implementation/fixture is incorporated.
+WP3.2 is the first incorporation of donor fixture bytes:
+
+- donor: dPeluChe/trs;
+- pin: `0175ae73f36709fd4a9242b2e431d026d6f82bb3`;
+- material: selected native Cargo test/build fixtures only;
+- code copied: **none**;
+- runtime parser implementation: newly authored HuGR-Lean TypeScript;
+- license notice: `docs/provenance/licenses/TRS-MIT.txt`.
+
+Each fixture carries its exact donor source path and adaptation note in Fixture Contract provenance metadata.

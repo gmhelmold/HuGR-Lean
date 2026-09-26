@@ -58,6 +58,11 @@ export {
   type TerminationRequirement,
 } from "./profile.js";
 export {
+  CargoBuildProfile,
+  CargoTestProfile,
+  cargoProfiles,
+} from "./profiles/cargo.js";
+export {
   MAX_DIAGNOSTICS,
   PROTOCOL_V1,
   ProtocolError,
