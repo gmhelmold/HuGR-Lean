@@ -80,7 +80,7 @@ HuGR-Lean is not a memory system, RAG layer, vector database, semantic compresso
 
 ## Status
 
-Project plan, Technical Specification, roadmap, and issue decomposition are established. **E0 passed G-E0. E1 is temporarily reopened for #72, which replaces the unreleased Rust/subprocess runtime with a single local TypeScript package. E2 profile-family work is paused until G-E1 re-passes on the TypeScript-only tree.**
+Project plan, Technical Specification, roadmap, and issue decomposition are established. **E0 passed G-E0 and E1 has re-passed G-E1 on the TypeScript-only runtime. E2 profile-family work is active again.**
 
 - [Formal Project Plan](docs/PROJECT_PLAN.md)
 - [Approved Technical Specification](docs/TECHNICAL_SPEC.md)
@@ -89,7 +89,9 @@ Project plan, Technical Specification, roadmap, and issue decomposition are esta
 - [E0 cold review / gate evidence](docs/reviews/HL-E0-REVIEW-01.md)
 - [WP1 cold review](docs/reviews/HL-WP1-REVIEW-01.md)
 - [WP2 cold review](docs/reviews/HL-WP2-REVIEW-01.md)
-- [E1 core correctness gate](docs/reviews/HL-E1-REVIEW-01.md)
+- [E1 core correctness gate — original Rust implementation](docs/reviews/HL-E1-REVIEW-01.md)
+- [TypeScript runtime migration review](docs/reviews/HL-ARCH-TS-MIGRATION-REVIEW-01.md)
+- [E1 core correctness gate — TypeScript runtime](docs/reviews/HL-E1-REVIEW-02.md)
 
 ### Epic tracking issues
 
