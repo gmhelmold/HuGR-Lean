@@ -83,10 +83,12 @@ export function validateTermination(value: TerminationV1): void {
   assertEnum(value.kind, ["unknown", "exited", "aborted", "timed_out"], "termination.kind");
 
   if (value.kind === "exited") {
+    const code = value.code;
     if (
-      !Number.isSafeInteger(value.code) ||
-      value.code < -2147483648 ||
-      value.code > 2147483647
+      code === null ||
+      !Number.isSafeInteger(code) ||
+      code < -2147483648 ||
+      code > 2147483647
     ) {
       throw new ProtocolError("exited termination requires a signed 32-bit exit code");
     }
@@ -211,7 +213,11 @@ export function validateFilterResultV1(result: FilterResultV1): void {
     ["input_bytes", "output_bytes", "saved_bytes"],
     "metrics",
   );
-  for (const [name, value] of Object.entries(result.metrics)) {
+  for (const [name, value] of [
+    ["input_bytes", result.metrics.input_bytes],
+    ["output_bytes", result.metrics.output_bytes],
+    ["saved_bytes", result.metrics.saved_bytes],
+  ] as const) {
     if (!Number.isSafeInteger(value) || value < 0) {
       throw new ProtocolError(`metrics.${name} must be a non-negative safe integer`);
     }
