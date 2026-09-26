@@ -42,13 +42,13 @@ test("pytest profile exposes native-text descriptor", () => {
 });
 
 test("pytest executable and python -m pytest are recognized, unittest is not", () => {
-  const input = "1 passed in 0.01s\n";
+  const input = "tests/test_demo.py . [100%]\n1 passed in 0.01s\n";
   for (const command of ["pytest", "pytest -q", "python -m pytest", "python3 -m pytest"]) {
     const result = new Engine(undefined, pythonPytestProfiles()).process(
       pytestObservation(command, input, exited(0)),
     );
     assert.equal(result.decision, "reduced", command);
-    assert.equal(result.replacement, input, command);
+    assert.equal(result.replacement, "1 passed in 0.01s\n", command);
   }
 
   const unittest = new Engine(undefined, pythonPytestProfiles()).process(
