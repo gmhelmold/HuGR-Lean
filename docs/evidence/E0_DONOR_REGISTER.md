@@ -105,7 +105,7 @@ Not carried into HuGR-Lean v1:
 
 ## Provenance baseline
 
-All current E0 output is research/documentation authored for HuGR-Lean. No donor source code or fixture bytes have yet been copied into the repository.
+At E0 completion, all audit output was newly authored and no donor source/fixture bytes had yet been copied. Later WP3 profile work deliberately incorporated selected fixture bytes with per-fixture provenance and retained licenses; donor runtime/parser code remains separate from HuGR-Lean implementations.
 
 When adoption begins:
 

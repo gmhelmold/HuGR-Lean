@@ -67,6 +67,12 @@ export {
   pythonPytestProfiles,
 } from "./profiles/pytest.js";
 export {
+  JestProfile,
+  TscProfile,
+  VitestProfile,
+  jsTsProfiles,
+} from "./profiles/js_ts.js";
+export {
   MAX_DIAGNOSTICS,
   PROTOCOL_V1,
   ProtocolError,
