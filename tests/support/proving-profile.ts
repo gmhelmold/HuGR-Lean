@@ -1,4 +1,3 @@
-import { linePrefixSpans } from "../../src/primitive.js";
 import {
   LeanWriter,
   PreservationContract,
@@ -45,14 +44,14 @@ export class ProvingProfile implements Profile {
   }
 
   shapeGuard(context: RouteContext) {
-    return linePrefixSpans(context.safe_baseline, "PROOF ").length > 0
-      ? ("match" as const)
-      : ("no_match" as const);
+    return proofLineSpan(context.safe_baseline) === null
+      ? ("no_match" as const)
+      : ("match" as const);
   }
 
   analyze(context: ProfileContext): AnalysisBundle {
-    const span = linePrefixSpans(context.safe_baseline, "PROOF ")[0];
-    if (span === undefined) {
+    const span = proofLineSpan(context.safe_baseline);
+    if (span === null) {
       throw new Error("proof line missing");
     }
 
@@ -77,4 +76,33 @@ export class ProvingProfile implements Profile {
       throw new Error("proving profile validation failed");
     }
   }
+}
+
+function proofLineSpan(input: string): { start_byte: number; end_byte: number } | null {
+  let codeUnitOffset = 0;
+  let byteOffset = 0;
+
+  while (codeUnitOffset < input.length) {
+    const newline = input.indexOf("\n", codeUnitOffset);
+    const chunkEnd = newline < 0 ? input.length : newline + 1;
+    const chunk = input.slice(codeUnitOffset, chunkEnd);
+    const hasLf = chunk.endsWith("\n");
+    const withoutLf = hasLf ? chunk.slice(0, -1) : chunk;
+    const content =
+      hasLf && withoutLf.endsWith("\r")
+        ? withoutLf.slice(0, -1)
+        : withoutLf;
+
+    if (content.startsWith("PROOF ")) {
+      return {
+        start_byte: byteOffset,
+        end_byte: byteOffset + Buffer.byteLength(content, "utf8"),
+      };
+    }
+
+    codeUnitOffset = chunkEnd;
+    byteOffset += Buffer.byteLength(chunk, "utf8");
+  }
+
+  return null;
 }

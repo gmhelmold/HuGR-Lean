@@ -74,15 +74,14 @@ The shared writer supports tagged `literal` / `literalLine`, plus `signal`, `sig
 
 ## Common mechanical primitives
 
-`src/primitive.ts` provides only exact mechanical helpers:
+WP3 closure found that the initial shared `primitive.ts` abstraction had **zero production consumers**. It was removed rather than retained as speculative framework surface.
 
-- exact non-overlapping substring spans;
-- logical line spans matching an exact prefix;
-- exact logical line spans.
+Profile-local parsing is allowed when grammar is family-specific. A helper is promoted to shared core only after:
 
-They return evidence-compatible `ByteSpan`s and do not truncate, rank relevance, infer semantics, or deduplicate arbitrary output.
+1. at least two concrete production profiles use the same mechanic; or
+2. a clearly cross-cutting correctness invariant justifies centralization.
 
-New shared primitives should have at least two concrete profile uses or a clearly cross-cutting correctness need.
+Shared helpers must remain mechanical: no truncation, ranking, semantic relevance, or arbitrary dedupe.
 
 ## Fixture and provenance obligation
 

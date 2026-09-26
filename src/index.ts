@@ -21,12 +21,6 @@ export {
   type SafeNormalizationOutcome,
 } from "./normalize.js";
 export {
-  exactLineSpans,
-  exactSpans,
-  linePrefixSpans,
-  PrimitiveError,
-} from "./primitive.js";
-export {
   LeanWriter,
   PreservationContract,
   PreservationError,
@@ -84,6 +78,7 @@ export {
   RipgrepGroupedProfile,
   searchProfiles,
 } from "./profiles/search.js";
+export { v1Profiles } from "./profiles/index.js";
 export {
   MAX_DIAGNOSTICS,
   PROTOCOL_V1,

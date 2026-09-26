@@ -41,12 +41,12 @@ HuGR-Lean is a local open-source TypeScript package.
 
 ## Core package usage
 
-HuGR-Lean's core is an in-process library. The host adapter owns the original tool output and calls the engine directly:
+HuGR-Lean is an in-process library. The host adapter owns the original tool output and calls the engine directly. `v1Profiles()` is the authoritative production profile set; constructing `Engine` without profiles intentionally runs only core/SafeNormalization behavior:
 
 ```ts
-import { Engine, PROTOCOL_V1 } from "hugr-lean";
+import { Engine, PROTOCOL_V1, v1Profiles } from "hugr-lean";
 
-const engine = new Engine();
+const engine = new Engine(undefined, v1Profiles());
 
 const result = engine.process({
   schema_version: PROTOCOL_V1,
