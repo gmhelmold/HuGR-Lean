@@ -15,7 +15,7 @@ presentation = "unknown"
 decision = "reduced"
 profile = "pytest"
 golden = "expected.txt"
-required_literals = ["pytest-7.4.3", "test_invoice_total_rounding", "2 failed, 70 passed"]
+required_literals = ["test_invoice_total_rounding", "test_user_lookup_missing", "2 failed, 70 passed"]
 forbidden_literals = ["collected 72 items", "test_app.py ............................................................"]
 properties = ["non_expanding", "idempotent", "preserves_required_literals"]
 
