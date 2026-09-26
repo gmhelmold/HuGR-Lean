@@ -386,7 +386,7 @@ A wider version range is advertised only after compatibility evidence exists.
 
 - no pre-execution command rewriting;
 - no shell interpolation to invoke HuGR-Lean;
-- missing binary, bad config, bad JSON or timeout cannot crash OpenCode;
+- invalid config, invalid observation/result data, or unexpected core exceptions cannot crash OpenCode;
 - attachments are untouched;
 - no default model-visible telemetry.
 
