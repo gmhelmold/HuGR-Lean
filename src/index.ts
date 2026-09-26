@@ -21,12 +21,6 @@ export {
   type SafeNormalizationOutcome,
 } from "./normalize.js";
 export {
-  exactLineSpans,
-  exactSpans,
-  linePrefixSpans,
-  PrimitiveError,
-} from "./primitive.js";
-export {
   LeanWriter,
   PreservationContract,
   PreservationError,
