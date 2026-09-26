@@ -80,23 +80,15 @@ export class ProfileContext {
     id: SignalId,
     ruleId: string,
     spans: ByteSpan[],
-    noun: string,
   ): Signal {
-    return createDerivedCountSignal(
-      id,
-      ruleId,
-      this.safe_baseline,
-      spans,
-      noun,
-    );
+    return createDerivedCountSignal(id, ruleId, this.safe_baseline, spans);
   }
 
   derivedCount(
     ruleId: string,
     spans: ByteSpan[],
-    noun: string,
   ): DerivedEvidence {
-    return createDerivedCount(ruleId, this.safe_baseline, spans, noun);
+    return createDerivedCount(ruleId, this.safe_baseline, spans);
   }
 }
 
