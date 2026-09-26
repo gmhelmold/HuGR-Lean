@@ -150,6 +150,19 @@ export function checkRequirements(
   observation: ObservationV1,
 ): "incomplete_input" | "termination_not_exited" | null {
   if (
+    requirements.completeness !== "any" &&
+    requirements.completeness !== "complete"
+  ) {
+    throw new ProfileRegistryError("invalid completeness requirement");
+  }
+  if (
+    requirements.termination !== "any" &&
+    requirements.termination !== "exited"
+  ) {
+    throw new ProfileRegistryError("invalid termination requirement");
+  }
+
+  if (
     requirements.completeness === "complete" &&
     observation.completeness !== "complete"
   ) {
@@ -167,6 +180,36 @@ export function checkRequirements(
 }
 
 function validateDescriptor(descriptor: ProfileDescriptor): void {
+  const keys = Object.keys(descriptor).sort();
+  const expected = [
+    "boundary_assumption",
+    "family",
+    "fixture_family",
+    "id",
+  ];
+  if (
+    keys.length !== expected.length ||
+    keys.some((key, index) => key !== expected[index])
+  ) {
+    throw new ProfileRegistryError("profile descriptor has invalid fields");
+  }
+
+  if (
+    typeof descriptor.id !== "string" ||
+    typeof descriptor.family !== "string" ||
+    typeof descriptor.fixture_family !== "string"
+  ) {
+    throw new ProfileRegistryError("profile descriptor names must be strings");
+  }
+
+  if (
+    descriptor.boundary_assumption !== "native_text" &&
+    descriptor.boundary_assumption !== "structured_text" &&
+    descriptor.boundary_assumption !== "rewrite_dependent"
+  ) {
+    throw new ProfileRegistryError("invalid boundary assumption");
+  }
+
   validateComponent(descriptor.id, "profile id");
   validateComponent(descriptor.family, "profile family");
   validateComponent(descriptor.fixture_family, "fixture family");
