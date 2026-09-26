@@ -29,7 +29,7 @@ Profiles do not call low-level `Signal` constructors directly. They create evide
 - `context.derived_count_signal(...)` — mechanically calculated count from validated, source-ordered, non-overlapping baseline spans.
 - `context.derived_count(...)` — display-only derived evidence with the same provenance rules.
 
-The low-level evidence constructors are module-private; a compile-fail doctest proves they are unavailable to an external profile implementation. Canonicalization currently exposes only the closed `trim_ascii_whitespace` rule. Empty canonical evidence is rejected.
+Low-level evidence construction is not exported from the package root. Production profiles create evidence through `ProfileContext`, which binds spans to the engine's actual safe baseline and outcomes to the actual observation. Canonicalization currently exposes only the closed `trim_ascii_whitespace` rule. Empty canonical evidence is rejected.
 
 An exit-code signal is unavailable unless termination is actually `Exited`.
 
@@ -44,13 +44,13 @@ The writer deliberately has no generic dynamic `text(&str)`/`write(String)` API.
 Available operations are:
 
 ```text
-static_text(&'static str)
+staticText(literal)
 signal(&Signal)
 derived(&DerivedEvidence)
 newline()
 ```
 
-`static_text` accepts only `&'static str`, so ordinary observation-derived runtime strings cannot flow through that method. A `compile_fail` doctest enforces this in CI.
+`staticText` / `staticLine` use a TypeScript literal-only generic. Ordinary runtime `string` values fail typechecking on that path; CI contains `@ts-expect-error` assertions proving the boundary.
 
 `signal()` appends the signal's canonical representation and records its `SignalId` as emitted.
 
