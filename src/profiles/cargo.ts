@@ -48,14 +48,22 @@ export class CargoTestProfile implements Profile {
   }
 
   shapeGuard(context: RouteContext): ProfileMatch {
-    return parseCargoTestShape(context.safe_baseline) === null
-      ? "no_match"
-      : "match";
+    const parsed = parseCargoTestShape(context.safe_baseline);
+    return parsed !== null &&
+      cargoTestOutcomeConsistent(parsed.summaryStatus, context.observation.termination.code)
+      ? "match"
+      : "no_match";
   }
 
   analyze(context: ProfileContext): AnalysisBundle {
     const parsed = parseCargoTestShape(context.safe_baseline);
-    if (parsed === null) {
+    if (
+      parsed === null ||
+      !cargoTestOutcomeConsistent(
+        parsed.summaryStatus,
+        context.observation.termination.code,
+      )
+    ) {
       throw new Error("unsupported cargo test output shape");
     }
 
@@ -165,6 +173,7 @@ function matchesCargoSubcommand(
 interface ParsedCargoTest {
   readonly failures: readonly ByteSpan[];
   readonly summary: ByteSpan;
+  readonly summaryStatus: "ok" | "FAILED";
 }
 
 interface LineRecord {
@@ -185,6 +194,13 @@ function parseCargoTestShape(input: string): ParsedCargoTest | null {
 
   const summaryLine = lines[summaryIndex];
   if (summaryLine === undefined || !isCargoTestSummary(summaryLine.text)) {
+    return null;
+  }
+
+  const hasRunningMarker = lines
+    .slice(0, summaryIndex)
+    .some((line) => /^running \d+ tests?$/u.test(line.text));
+  if (!hasRunningMarker) {
     return null;
   }
 
@@ -247,13 +263,28 @@ function parseCargoTestShape(input: string): ParsedCargoTest | null {
     return null;
   }
 
+  const summaryStatus = summaryLine.text.startsWith("test result: ok.")
+    ? "ok"
+    : "FAILED";
+
   return {
     failures,
     summary: {
       start_byte: summaryLine.startByte,
       end_byte: summaryLine.endByte,
     },
+    summaryStatus,
   };
+}
+
+function cargoTestOutcomeConsistent(
+  status: "ok" | "FAILED",
+  exitCode: number | null,
+): boolean {
+  if (exitCode === null) {
+    return false;
+  }
+  return status === "ok" ? exitCode === 0 : exitCode !== 0;
 }
 
 function cargoBuildDiagnosticSpan(input: string): ByteSpan | null {
