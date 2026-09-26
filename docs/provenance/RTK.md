@@ -112,3 +112,14 @@ RTK is the **largest knowledge donor**, but not the closest architectural match.
 RTK's pinned Go documentation states that its `go test` path injects `-json` and parses NDJSON.
 
 HuGR-Lean WP3.5 therefore treats the RTK Go reducer as **REIMPLEMENT evidence only**. The TypeScript `go-test-verbose` profile parses only native text already present at the HuGR-Lean boundary and never injects `-json`.
+
+
+## WP3.7 Container profile decision
+
+At the pinned RTK revision, `src/cmds/cloud/container.rs` obtains compact Docker and Kubernetes views by executing alternate commands:
+
+- Docker ps/images use explicit `--format` queries;
+- kubectl pods/services force `-o json`;
+- log paths apply tail/deduplication behavior.
+
+These are execution-wrapper capabilities, not native post-execution reducers. WP3.7 therefore admits no RTK-derived container runtime profile and keeps these surfaces conservative.
