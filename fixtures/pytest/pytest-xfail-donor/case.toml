@@ -1,0 +1,33 @@
+schema = 1
+id = "pytest-xfail-donor"
+kind = "profile"
+
+[observation]
+source = "shell"
+command = "pytest"
+shell_dialect = "unknown"
+termination = "exited"
+exit_code = 0
+completeness = "complete"
+presentation = "unknown"
+
+[expect]
+decision = "reduced"
+profile = "pytest"
+golden = "expected.txt"
+required_literals = ["test_known_bug XFAIL", "test_unexpected_pass XPASS", "test_skip SKIPPED", "1 xfailed", "1 xpassed"]
+forbidden_literals = ["test_add PASSED"]
+properties = ["non_expanding", "idempotent", "preserves_required_literals"]
+
+[preservation]
+mandatory_signal_ids = ["pytest-summary", "pytest-status-0", "pytest-status-1", "pytest-status-2"]
+permitted_removals = ["passing_test_row", "pytest_session_chatter", "pytest_progress"]
+
+[provenance]
+kind = "donor"
+source_repo = "dPeluChe/trs"
+source_commit = "0175ae73f36709fd4a9242b2e431d026d6f82bb3"
+source_path = "tests/fixture_data/pytest_with_xfail.txt"
+license = "MIT"
+origin_issue = 31
+notes = "Input copied verbatim from pinned TRS fixture; expected HuGR-Lean output authored locally."

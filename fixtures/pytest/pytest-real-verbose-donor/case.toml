@@ -1,0 +1,33 @@
+schema = 1
+id = "pytest-real-verbose-donor"
+kind = "profile"
+
+[observation]
+source = "shell"
+command = "pytest -v"
+shell_dialect = "unknown"
+termination = "exited"
+exit_code = 1
+completeness = "complete"
+presentation = "unknown"
+
+[expect]
+decision = "reduced"
+profile = "pytest"
+golden = "expected.txt"
+required_literals = ["test_invoice_total_rounding FAILED", "test_user_lookup_missing FAILED", "test_app.py:215", "test_app.py:219", "2 failed, 70 passed"]
+forbidden_literals = ["test_app.py::test_ok_69 PASSED", "collecting ... collected 72 items"]
+properties = ["non_expanding", "idempotent", "preserves_required_literals"]
+
+[preservation]
+mandatory_signal_ids = ["pytest-summary", "pytest-diagnostics", "pytest-short-summary", "pytest-status-0", "pytest-status-1"]
+permitted_removals = ["passing_test_row", "pytest_session_chatter", "pytest_progress"]
+
+[provenance]
+kind = "donor"
+source_repo = "dPeluChe/trs"
+source_commit = "0175ae73f36709fd4a9242b2e431d026d6f82bb3"
+source_path = "tests/fixture_data/pytest_real_verbose.txt"
+license = "MIT"
+origin_issue = 31
+notes = "Input copied verbatim from pinned TRS fixture; expected HuGR-Lean output authored locally."
