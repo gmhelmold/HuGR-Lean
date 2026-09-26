@@ -3,7 +3,7 @@
 **Document ID:** HL-ROADMAP-001
 **Version:** 0.1
 **Status:** Epic baseline
-**Normative parents:** HL-PLAN-001 v1.1; HL-SPEC-001 v1.0
+**Normative parents:** HL-PLAN-001 v1.1; HL-SPEC-001 v1.1
 
 ## 0. Execution model
 
@@ -152,31 +152,22 @@ No production reducer framework, host integration or wholesale donor port.
 
 ## E1 execution status
 
-**REOPENED — TypeScript runtime migration #72; G-E1 revalidation pending**
+**COMPLETE — G-E1 Core Correctness: PASS on TypeScript-only runtime**
 
-### Runtime amendment #72
-
-The approved behavioral contracts remain authoritative, but the unreleased Rust/subprocess implementation is being replaced by a single local TypeScript package.
-
-Migration exit conditions:
-
-- existing fixture corpus passes unchanged;
-- deterministic arbitrary-input evidence passes;
-- TypeScript typecheck/build/package verification pass;
-- Rust/Cargo runtime artifacts are removed;
-- zero runtime dependencies for the filtering core;
-- G-E1 is re-reviewed against the final TypeScript-only tree.
-
+Runtime amendment #72 replaced the unreleased Rust/subprocess implementation with a single local TypeScript package.
 
 Evidence:
 
 - `docs/reviews/HL-WP1-REVIEW-01.md`
 - `docs/reviews/HL-WP2-REVIEW-01.md`
-- `docs/reviews/HL-E1-REVIEW-01.md`
+- `docs/reviews/HL-ARCH-TS-MIGRATION-REVIEW-01.md`
+- `docs/reviews/HL-E1-REVIEW-02.md`
 - WP1 #8 complete
 - WP2 #9 complete
-- latest gate-aligned main CI: `36184227395` — PASS
-- 107 regular tests + 2 compile-fail doctests, zero failures
+- migration #72 complete
+- final TypeScript main CI: `36208038423` — PASS
+- 45 Node tests, strict typecheck, build, package verification — PASS
+- production runtime dependencies: 0
 
 E2 Profile System & Coverage is paused until #72 completes and G-E1 re-passes on the TypeScript-only tree.
 
@@ -593,4 +584,4 @@ Project state:
 Roadmapped
 ~~~
 
-Execution tree is fully decomposed. E0 passed G-E0. E1 previously passed on the unreleased Rust implementation and is temporarily reopened for #72. E2 family work is paused until the TypeScript-only core re-passes G-E1. WP7 #14 remains the continuous verification corpus lane.
+Execution tree is fully decomposed. E0 passed G-E0 and E1 has re-passed G-E1 on the TypeScript-only runtime. E2 profile-family work may resume. WP7 #14 remains the continuous verification corpus lane.
