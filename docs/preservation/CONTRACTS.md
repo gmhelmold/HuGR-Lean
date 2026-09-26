@@ -44,13 +44,16 @@ The writer deliberately has no generic dynamic `text(&str)`/`write(String)` API.
 Available operations are:
 
 ```text
-staticText(literal)
-signal(&Signal)
-derived(&DerivedEvidence)
+literal`static label`
+literalLine`static label`
+signal(Signal)
+signalLine(Signal)
+derived(DerivedEvidence)
+derivedLine(DerivedEvidence)
 newline()
 ```
 
-`staticText` / `staticLine` use a TypeScript literal-only generic. Ordinary runtime `string` values fail typechecking on that path; CI contains `@ts-expect-error` assertions proving the boundary.
+`literal` / `literalLine` are tagged-template APIs that reject interpolation at typecheck and runtime. The writer also verifies it received a frozen template object, so ordinary runtime strings/forged arrays cannot use the static path.
 
 `signal()` appends the signal's canonical representation and records its `SignalId` as emitted.
 
@@ -100,7 +103,7 @@ result
 
 ## Derived evidence vs critical signals
 
-Derived evidence may be display-only. Count derivations reject duplicate, overlapping, or out-of-order spans so one piece of evidence cannot be counted multiple times. If a derived claim is critical, it must be created as a derived `Signal` and its ID must be required by the Preservation Contract.
+Derived evidence may be display-only. Count derivations emit only the mechanical decimal count; surrounding prose must be static tagged-template text. Count derivations reject duplicate, overlapping, or out-of-order spans so one piece of evidence cannot be counted multiple times. If a derived claim is critical, it must be created as a derived `Signal` and its ID must be required by the Preservation Contract.
 
 ## Deliberate non-designs
 
