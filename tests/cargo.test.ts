@@ -118,6 +118,92 @@ test("cargo test unknown termination reaches requirements and fails open", () =>
   assert.deepEqual(result.diagnostics, ["unknown_termination"]);
 });
 
+test("cargo test with multiple suite summaries remains conservative", () => {
+  const input = [
+    "running 1 test",
+    "test unit::one ... ok",
+    "",
+    "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+    "",
+    "running 1 test",
+    "test doc::one ... ok",
+    "",
+    "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+    "",
+  ].join("\n");
+
+  const result = new Engine(undefined, cargoProfiles()).process(
+    cargoObservation("cargo test", input, exited(0)),
+  );
+
+  assert.equal(result.decision, "passthrough");
+  assert.equal(result.replacement, null);
+});
+
+test("cargo test internally contradictory summary remains conservative", () => {
+  const input = [
+    "running 1 test",
+    "test tests::one ... ok",
+    "",
+    "test result: ok. 0 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s",
+    "",
+  ].join("\n");
+
+  const result = new Engine(undefined, cargoProfiles()).process(
+    cargoObservation("cargo test", input, exited(0)),
+  );
+
+  assert.equal(result.decision, "passthrough");
+  assert.equal(result.replacement, null);
+});
+
+test("cargo build contradictory diagnostics and exit status fail open", () => {
+  const input = [
+    "   Compiling demo v0.1.0 (/work/demo)",
+    "warning: unused variable: \`x\`",
+    " --> src/lib.rs:3:9",
+    "",
+  ].join("\n");
+
+  const result = new Engine(undefined, cargoProfiles()).process(
+    cargoObservation("cargo build", input, exited(101)),
+  );
+
+  assert.equal(result.decision, "failed_open");
+  assert.deepEqual(result.diagnostics, ["profile_parse_failed"]);
+});
+
+test("cargo build truncated diagnostics fail open before analysis", () => {
+  const input = [
+    "   Compiling demo v0.1.0 (/work/demo)",
+    "error[E0308]: mismatched types",
+    " --> src/main.rs:2:5",
+    "",
+  ].join("\n");
+
+  const observation = cargoObservation("cargo build", input, exited(101));
+  observation.completeness = "truncated";
+  const result = new Engine(undefined, cargoProfiles()).process(observation);
+
+  assert.equal(result.decision, "failed_open");
+  assert.deepEqual(result.diagnostics, ["incomplete_input"]);
+});
+
+test("cargo build unknown termination fails open before analysis", () => {
+  const input = [
+    "warning: unused variable: \`x\`",
+    " --> src/lib.rs:3:9",
+    "",
+  ].join("\n");
+
+  const result = new Engine(undefined, cargoProfiles()).process(
+    cargoObservation("cargo build", input, unknownTermination()),
+  );
+
+  assert.equal(result.decision, "failed_open");
+  assert.deepEqual(result.diagnostics, ["unknown_termination"]);
+});
+
 test("cargo build success without diagnostics is left exact", () => {
   const input = [
     "   Compiling demo v0.1.0 (/work/demo)",
