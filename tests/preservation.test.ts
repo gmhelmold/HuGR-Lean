@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  EvidenceError,
   LeanWriter,
   PreservationContract,
   PreservationError,
@@ -137,5 +138,38 @@ test("static literal writer rejects interpolation and forged direct calls", () =
   assert.throws(() => {
     const forged = ["forged"] as unknown as TemplateStringsArray;
     writer.literal(forged);
+  });
+});
+
+
+test("writer rejects forged structural evidence and evidence/output objects are immutable", () => {
+  const ctx = context("ERROR");
+  const signal = ctx.verbatimSignal(failureId, {
+    start_byte: 0,
+    end_byte: Buffer.byteLength("ERROR"),
+  });
+
+  assert.ok(Object.isFrozen(signal));
+  assert.ok(Object.isFrozen(signal.evidence));
+  assert.throws(() => {
+    (signal as unknown as { canonical_text: string }).canonical_text = "FAKE";
+  });
+
+  const writer = new LeanWriter();
+  assert.throws(
+    () =>
+      writer.signal({
+        id: failureId,
+        canonical_text: "FAKE",
+        evidence: { kind: "input_span", span: { start_byte: 0, end_byte: 1 } },
+      } as never),
+    EvidenceError,
+  );
+
+  writer.signal(signal);
+  const output = writer.finish();
+  assert.ok(Object.isFrozen(output));
+  assert.throws(() => {
+    (output as unknown as { text: string }).text = "FAKE";
   });
 });
