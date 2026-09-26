@@ -48,11 +48,9 @@ export class CargoTestProfile implements Profile {
   }
 
   shapeGuard(context: RouteContext): ProfileMatch {
-    const parsed = parseCargoTestShape(context.safe_baseline);
-    return parsed !== null &&
-      cargoTestOutcomeConsistent(parsed.summaryStatus, context.observation.termination.code)
-      ? "match"
-      : "no_match";
+    return parseCargoTestShape(context.safe_baseline) === null
+      ? "no_match"
+      : "match";
   }
 
   analyze(context: ProfileContext): AnalysisBundle {
