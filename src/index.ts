@@ -63,6 +63,10 @@ export {
   cargoProfiles,
 } from "./profiles/cargo.js";
 export {
+  PytestProfile,
+  pythonPytestProfiles,
+} from "./profiles/pytest.js";
+export {
   MAX_DIAGNOSTICS,
   PROTOCOL_V1,
   ProtocolError,
