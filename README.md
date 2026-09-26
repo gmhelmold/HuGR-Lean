@@ -28,13 +28,24 @@ model-visible result
 - raw output recoverable when reduction is material
 - small, auditable, testable core
 
+## Runtime direction
+
+HuGR-Lean is a local open-source TypeScript package.
+
+- no cloud service or account;
+- no LLM calls;
+- no Rust/native filtering binary;
+- no subprocess/IPC filtering path;
+- zero runtime dependencies targeted for the core;
+- installed package exposes compiled JavaScript plus TypeScript declarations.
+
 ## Non-goals
 
 HuGR-Lean is not a memory system, RAG layer, vector database, semantic compressor, context orchestrator, or autonomous agent.
 
 ## Status
 
-Project plan, Technical Specification, roadmap, and issue decomposition are established. **E0 Evidence & Baseline passed G-E0 and E1 Core Engine passed G-E1 Core Correctness.** The active execution lane is E2 Profile System & Coverage.
+Project plan, Technical Specification, roadmap, and issue decomposition are established. **E0 passed G-E0. E1 is temporarily reopened for #72, which replaces the unreleased Rust/subprocess runtime with a single local TypeScript package. E2 profile-family work is paused until G-E1 re-passes on the TypeScript-only tree.**
 
 - [Formal Project Plan](docs/PROJECT_PLAN.md)
 - [Approved Technical Specification](docs/TECHNICAL_SPEC.md)
