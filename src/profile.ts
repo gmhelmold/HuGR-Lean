@@ -58,7 +58,9 @@ export class ProfileContext {
     readonly observation: ObservationV1,
     readonly identity: InvocationIdentity,
     readonly safe_baseline: string,
-  ) {}
+  ) {
+    Object.freeze(this);
+  }
 
   verbatimSignal(id: SignalId, span: ByteSpan): Signal {
     return createVerbatimSignal(id, this.safe_baseline, span);
