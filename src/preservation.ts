@@ -45,7 +45,10 @@ export class Signal {
     readonly id: SignalId,
     readonly canonical_text: string,
     readonly evidence: EvidenceRef,
-  ) {}
+  ) {
+    freezeEvidenceRef(evidence);
+    Object.freeze(this);
+  }
 
   /** @internal */
   static verbatim(id: SignalId, input: string, span: ByteSpan): Signal {
@@ -129,7 +132,13 @@ export class DerivedEvidence {
     readonly rendered_text: string,
     readonly rule_id: string,
     readonly source_spans: ByteSpan[],
-  ) {}
+  ) {
+    for (const span of source_spans) {
+      Object.freeze(span);
+    }
+    Object.freeze(source_spans);
+    Object.freeze(this);
+  }
 
   /** @internal */
   static count(
@@ -191,6 +200,9 @@ export class LeanWriter {
   }
 
   signal(signal: Signal): void {
+    if (!(signal instanceof Signal)) {
+      throw new EvidenceError("writer requires a trusted Signal instance");
+    }
     this.#text += signal.canonical_text;
     this.#signalIds.add(signal.id);
   }
@@ -201,6 +213,9 @@ export class LeanWriter {
   }
 
   derived(evidence: DerivedEvidence): void {
+    if (!(evidence instanceof DerivedEvidence)) {
+      throw new EvidenceError("writer requires trusted DerivedEvidence");
+    }
     this.#text += evidence.rendered_text;
     this.#derived.push({
       rule_id: evidence.rule_id,
@@ -247,7 +262,17 @@ export class RenderedOutput {
     readonly text: string,
     readonly emitted_signal_ids: ReadonlySet<SignalId>,
     readonly derived_records: readonly DerivedRecord[],
-  ) {}
+  ) {
+    for (const record of derived_records) {
+      for (const span of record.source_spans) {
+        Object.freeze(span);
+      }
+      Object.freeze(record.source_spans);
+      Object.freeze(record);
+    }
+    Object.freeze(derived_records);
+    Object.freeze(this);
+  }
 }
 
 /** @internal */
@@ -363,6 +388,20 @@ function byteSpanToCodeUnits(input: string, span: ByteSpan): [number, number] {
   }
 
   return [start, end];
+}
+
+function freezeEvidenceRef(evidence: EvidenceRef): void {
+  if (evidence.kind === "input_span") {
+    Object.freeze(evidence.span);
+  } else if (evidence.kind === "canonicalized") {
+    Object.freeze(evidence.source_span);
+  } else if (evidence.kind === "derived") {
+    for (const span of evidence.source_spans) {
+      Object.freeze(span);
+    }
+    Object.freeze(evidence.source_spans);
+  }
+  Object.freeze(evidence);
 }
 
 function validateSignalId(id: SignalId): void {
