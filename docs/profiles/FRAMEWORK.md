@@ -70,7 +70,7 @@ Unknown/truncated/version-drifted input remains conservative unless explicit fix
 
 ## Common writer patterns
 
-The shared writer supports `static_text`, `static_line`, `signal`, `signal_line`, `derived`, `derived_line`, and `newline`. Line helpers do not weaken the dynamic/static evidence boundary.
+The shared writer supports tagged `literal` / `literalLine`, plus `signal`, `signalLine`, `derived`, `derivedLine`, and `newline`. Static tags accept no interpolation; line helpers do not weaken the dynamic/static evidence boundary.
 
 ## Common mechanical primitives
 
