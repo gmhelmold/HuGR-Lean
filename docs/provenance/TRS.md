@@ -155,3 +155,17 @@ Source pin:
 License: MIT. Existing notice remains at `docs/provenance/licenses/TRS-MIT.txt`.
 
 The HuGR-Lean Jest/Vitest/tsc profiles are newly authored TypeScript. No TRS parser, router, reducer, rewrite, or integration source code is copied.
+
+
+### WP3.5 Go parser research
+
+WP3.5 inspected the pinned native Go parser at:
+
+- `src/router/handlers/parse/go_test.rs`
+
+Source pin:
+`0175ae73f36709fd4a9242b2e431d026d6f82bb3`.
+
+Disposition: **REIMPLEMENT / research only**.
+
+The HuGR-Lean Go profile is newly authored TypeScript with a narrower grammar and stronger fail-open boundaries. No TRS Go parser source code or fixture bytes are copied for WP3.5.

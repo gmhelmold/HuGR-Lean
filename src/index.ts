@@ -73,6 +73,10 @@ export {
   jsTsProfiles,
 } from "./profiles/js_ts.js";
 export {
+  GoTestVerboseProfile,
+  goProfiles,
+} from "./profiles/go.js";
+export {
   MAX_DIAGNOSTICS,
   PROTOCOL_V1,
   ProtocolError,

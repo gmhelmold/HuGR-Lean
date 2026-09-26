@@ -105,3 +105,10 @@ HuGR-Lean does not inherit:
 ## Audit conclusion
 
 RTK is the **largest knowledge donor**, but not the closest architectural match. Its strongest value is years of fixtures, quirks, parser logic and failure cases. Pure parsers may be adapted; rewrite-dependent reducers become reimplementation inputs.
+
+
+## WP3.5 Go profile decision
+
+RTK's pinned Go documentation states that its `go test` path injects `-json` and parses NDJSON.
+
+HuGR-Lean WP3.5 therefore treats the RTK Go reducer as **REIMPLEMENT evidence only**. The TypeScript `go-test-verbose` profile parses only native text already present at the HuGR-Lean boundary and never injects `-json`.
