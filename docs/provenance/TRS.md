@@ -169,3 +169,23 @@ Source pin:
 Disposition: **REIMPLEMENT / research only**.
 
 The HuGR-Lean Go profile is newly authored TypeScript with a narrower grammar and stronger fail-open boundaries. No TRS Go parser source code or fixture bytes are copied for WP3.5.
+
+
+### WP3.6 Git status fixture incorporation
+
+WP3.6 copies selected native human `git status` fixture bytes from the pinned TRS revision:
+
+- `fixtures/git-status/git-status-clean-donor/input.txt`
+  ← `tests/fixture_data/git_status_clean.txt`
+- `fixtures/git-status/git-status-staged-donor/input.txt`
+  ← `tests/fixture_data/git_status_staged.txt`
+- `fixtures/git-status/git-status-mixed-donor/input.txt`
+  ← `tests/fixture_data/git_status_mixed.txt`
+- `fixtures/git-status/git-status-conflict-donor/input.txt`
+  ← `tests/fixture_data/git_status_conflict.txt`
+
+Source pin: `0175ae73f36709fd4a9242b2e431d026d6f82bb3`.
+
+License: MIT. Existing notice remains at `docs/provenance/licenses/TRS-MIT.txt`.
+
+The HuGR-Lean Git parser/profile is newly authored TypeScript. No TRS parser, router, rewrite, probe, or integration source code is copied.
