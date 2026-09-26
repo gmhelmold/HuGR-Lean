@@ -1,3 +1,4 @@
+import { lineRecords } from "../primitive.js";
 import type { InvocationIdentity } from "../command.js";
 import {
   LeanWriter,
@@ -193,13 +194,6 @@ interface ParsedCargoTest {
   readonly summaryStatus: "ok" | "FAILED";
 }
 
-interface LineRecord {
-  readonly text: string;
-  readonly startByte: number;
-  readonly endByte: number;
-  readonly endWithNewlineByte: number;
-}
-
 function parseCargoTestShape(input: string): ParsedCargoTest | null {
   const lines = lineRecords(input);
   const summaryIndexes = lines
@@ -242,8 +236,8 @@ function parseCargoTestShape(input: string): ParsedCargoTest | null {
       }
 
       if (line.text.startsWith("---- ") && line.text.endsWith(" stdout ----")) {
-        const start = line.startByte;
-        let end = line.endByte;
+        const start = line.start_byte;
+        let end = line.end_byte;
         index += 1;
 
         while (index < summaryIndex) {
@@ -258,7 +252,7 @@ function parseCargoTestShape(input: string): ParsedCargoTest | null {
             break;
           }
           if (next.text.length > 0) {
-            end = next.endByte;
+            end = next.end_byte;
           }
           index += 1;
         }
@@ -299,8 +293,8 @@ function parseCargoTestShape(input: string): ParsedCargoTest | null {
   return {
     failures,
     summary: {
-      start_byte: summaryLine.startByte,
-      end_byte: summaryLine.endByte,
+      start_byte: summaryLine.start_byte,
+      end_byte: summaryLine.end_byte,
     },
     summaryStatus,
   };
@@ -349,8 +343,8 @@ function cargoBuildShape(input: string): CargoBuildShape | null {
 
   return {
     span: {
-      start_byte: firstDiagnostic.startByte,
-      end_byte: last.endWithNewlineByte,
+      start_byte: firstDiagnostic.start_byte,
+      end_byte: last.end_with_newline_byte,
     },
     hasError,
   };
@@ -381,39 +375,6 @@ function parseSummaryFailedCount(line: string): number | null {
   }
   const value = Number(match[1]);
   return Number.isSafeInteger(value) ? value : null;
-}
-
-function lineRecords(input: string): LineRecord[] {
-  const records: LineRecord[] = [];
-  let codeUnitOffset = 0;
-  let byteOffset = 0;
-
-  while (codeUnitOffset < input.length) {
-    const newline = input.indexOf("\n", codeUnitOffset);
-    const chunkEnd = newline < 0 ? input.length : newline + 1;
-    const chunk = input.slice(codeUnitOffset, chunkEnd);
-    const hasLf = chunk.endsWith("\n");
-    const withoutLf = hasLf ? chunk.slice(0, -1) : chunk;
-    const content =
-      hasLf && withoutLf.endsWith("\r")
-        ? withoutLf.slice(0, -1)
-        : withoutLf;
-
-    const contentBytes = Buffer.byteLength(content, "utf8");
-    const chunkBytes = Buffer.byteLength(chunk, "utf8");
-
-    records.push({
-      text: content,
-      startByte: byteOffset,
-      endByte: byteOffset + contentBytes,
-      endWithNewlineByte: byteOffset + chunkBytes,
-    });
-
-    codeUnitOffset = chunkEnd;
-    byteOffset += chunkBytes;
-  }
-
-  return records;
 }
 
 function cargoTestAnalysis(value: unknown): CargoTestAnalysis {
