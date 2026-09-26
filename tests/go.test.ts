@@ -49,7 +49,10 @@ test("all Go profile fixtures execute through the real engine", () => {
   assert.ok(fixtures.length >= 7);
 
   for (const fixture of fixtures) {
-    assert.equal(fixture.case.kind, "profile", fixture.case.id);
+    assert.ok(
+      fixture.case.kind === "profile" || fixture.case.kind === "regression",
+      fixture.case.id,
+    );
     verifyFixture(engine, fixture);
   }
 });
@@ -69,7 +72,6 @@ test("go test -v is admitted with flags/packages in conservative bare syntax", (
     "go test -v",
     "go test ./... -v",
     "go test -count=1 -v ./...",
-    "go test -test.v ./pkg",
   ]) {
     const result = engine.process(
       observation(command, passingVerbose, exited(0)),
@@ -96,6 +98,33 @@ test("go test -json is never treated as native verbose text", () => {
 
   assert.equal(result.decision, "passthrough");
   assert.equal(result.replacement, null);
+});
+
+test("test-binary -test.v spelling does not stand in for go command verbose mode", () => {
+  const result = new Engine(undefined, goProfiles()).process(
+    observation("go test -test.v ./pkg", passingVerbose, exited(0)),
+  );
+  assert.equal(result.decision, "passthrough");
+});
+
+test("cached native package summary is admitted", () => {
+  const input = [
+    "=== RUN   TestAdd",
+    "--- PASS: TestAdd (0.00s)",
+    "PASS",
+    "ok  \texample.com/demo/math\t(cached)",
+    "",
+  ].join("\n");
+
+  const result = new Engine(undefined, goProfiles()).process(
+    observation("go test -v", input, exited(0)),
+  );
+
+  assert.equal(result.decision, "reduced");
+  assert.equal(
+    result.replacement,
+    "ok  \texample.com/demo/math\t(cached)\n",
+  );
 });
 
 test("go test benchmark and fuzz modes remain outside the profile", () => {
@@ -180,6 +209,24 @@ test("subtests and parallel framing remain conservative version drift", () => {
     assert.equal(result.decision, "passthrough");
     assert.equal(result.replacement, null);
   }
+});
+
+test("output from a passing test is not assumed to be noise", () => {
+  const input = [
+    "=== RUN   TestChatty",
+    "    chatty_test.go:10: useful diagnostic log",
+    "--- PASS: TestChatty (0.00s)",
+    "PASS",
+    "ok  \texample.com/demo\t0.002s",
+    "",
+  ].join("\n");
+
+  const result = new Engine(undefined, goProfiles()).process(
+    observation("go test -v", input, exited(0)),
+  );
+
+  assert.equal(result.decision, "passthrough");
+  assert.equal(result.replacement, null);
 });
 
 test("unknown non-indented test output prevents partial reduction", () => {
