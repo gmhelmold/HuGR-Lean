@@ -39,6 +39,41 @@ HuGR-Lean is a local open-source TypeScript package.
 - zero runtime dependencies targeted for the core;
 - installed package exposes compiled JavaScript plus TypeScript declarations.
 
+## Core package usage
+
+HuGR-Lean's core is an in-process library. The host adapter owns the original tool output and calls the engine directly:
+
+```ts
+import { Engine, PROTOCOL_V1 } from "hugr-lean";
+
+const engine = new Engine();
+
+const result = engine.process({
+  schema_version: PROTOCOL_V1,
+  source: "shell",
+  command: "cargo test",
+  shell_dialect: "unknown",
+  output: toolOutput,
+  termination: { kind: "exited", code: 0 },
+  completeness: "complete",
+  presentation: "unknown",
+});
+```
+
+Until the first package release is published, contributors use the repository directly; the OpenCode install/enable flow belongs to E4.
+
+## Local development
+
+```bash
+npm ci
+npm run typecheck
+npm test
+npm run build
+npm pack --dry-run
+```
+
+No Rust toolchain, native compiler, daemon, service account, or local database is required.
+
 ## Non-goals
 
 HuGR-Lean is not a memory system, RAG layer, vector database, semantic compressor, context orchestrator, or autonomous agent.
