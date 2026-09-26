@@ -58,3 +58,46 @@ test("result validation rejects inconsistent replacement metrics", () => {
   assert.throws(() => validateFilterResultV1(invalid), ProtocolError);
   assert.equal(utf8Bytes("é"), 2);
 });
+
+
+test("runtime observation validation rejects unknown fields and enum drift", () => {
+  const extra = {
+    ...observation(),
+    surprise: true,
+  } as unknown as ObservationV1;
+  assert.throws(() => validateObservationV1(extra), ProtocolError);
+
+  const badSource = {
+    ...observation(),
+    source: "shell-ish",
+  } as unknown as ObservationV1;
+  assert.throws(() => validateObservationV1(badSource), ProtocolError);
+
+  const badExit = {
+    ...observation(),
+    termination: { kind: "exited", code: 3.14 },
+  } as unknown as ObservationV1;
+  assert.throws(() => validateObservationV1(badExit), ProtocolError);
+});
+
+test("runtime result validation rejects unknown fields and invalid decisions", () => {
+  const base = passthroughResult("ok");
+
+  const extra = {
+    ...base,
+    surprise: true,
+  } as unknown as FilterResultV1;
+  assert.throws(() => validateFilterResultV1(extra), ProtocolError);
+
+  const badDecision = {
+    ...base,
+    decision: "shrunk",
+  } as unknown as FilterResultV1;
+  assert.throws(() => validateFilterResultV1(badDecision), ProtocolError);
+
+  const badDiagnostic = {
+    ...base,
+    diagnostics: ["made_up"],
+  } as unknown as FilterResultV1;
+  assert.throws(() => validateFilterResultV1(badDiagnostic), ProtocolError);
+});
