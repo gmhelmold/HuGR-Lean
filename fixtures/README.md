@@ -37,3 +37,10 @@ The proving profile is test support only and is not registered by the production
 See [docs/verification/NORMALIZATION_CORPUS.md](../docs/verification/NORMALIZATION_CORPUS.md).
 
 Negative cases require exact passthrough; #28 owns primitive composition and engine integration.
+
+
+## WP3 search corpus
+
+`fixtures/search-rg/` covers the narrow native ripgrep grouping profile plus adversarial passthrough cases for heading, context, columns, binary output, no-line-number output, and non-beneficial result shapes.
+
+Filesystem listing commands remain exact/passthrough in v1 unless future evidence proves a deterministic removable presentation class.
