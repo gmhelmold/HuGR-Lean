@@ -3,7 +3,7 @@
 **Document ID:** HL-SPEC-001  
 **Version:** 1.1  
 **Status:** Approved Technical Specification  
-**Review state:** TypeScript runtime amendment #72; G-E1 revalidation pending  
+**Review state:** TypeScript runtime amendment #72 incorporated; G-E1 revalidated on TypeScript-only runtime  
 **Normative parent:** HL-PLAN-001 v1.1  
 **Date:** 2026-09-25  
 **Scope:** Concrete architecture and technical mechanisms required to refine the Formal Project Plan
